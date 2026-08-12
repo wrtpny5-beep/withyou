@@ -243,6 +243,19 @@
   }
   .trip-pick-item .tp-name{font-family:var(--font-display); font-weight:700; font-size:16.5px;}
   .trip-pick-item .tp-code{font-size:12.5px; color:var(--slate); margin-top:3px; font-weight:500;}
+
+  /* ---------- Survey ---------- */
+  .survey-tally-row{display:flex; align-items:center; gap:10px; margin-bottom:11px;}
+  .survey-tally-label{width:98px; flex:0 0 auto; font-size:13.5px; font-weight:600; color:var(--ink-soft);}
+  .survey-tally-bar-wrap{flex:1; background:var(--paper-2); border-radius:8px; height:11px; overflow:hidden;}
+  .survey-tally-bar{background:var(--amber); height:100%; border-radius:8px;}
+  .survey-tally-count{width:22px; flex:0 0 auto; text-align:right; font-size:13px; color:var(--slate); font-weight:600;}
+  .survey-member-card{background:#fff; border:1px solid var(--line); border-radius:12px; padding:15px; margin-bottom:10px;}
+  .survey-member-card .sm-name{font-family:var(--font-display); font-weight:700; font-size:15.5px; margin-bottom:7px;}
+  .survey-member-card .sm-styles{display:flex; flex-wrap:wrap; gap:6px; margin-bottom:8px;}
+  .survey-member-card .sm-tag{font-size:12.5px; font-weight:600; background:var(--paper-2); color:var(--ink-soft); padding:4px 10px; border-radius:999px;}
+  .survey-member-card .sm-row{font-size:14px; color:var(--ink-soft); line-height:1.6; margin-top:5px;}
+  .survey-member-card .sm-row b{color:var(--ink); font-weight:700;}
 </style>
 
 </head>
@@ -314,6 +327,12 @@
       <div class="chip" data-filter="액티비티" onclick="setFilter('액티비티')">활동</div>
     </div>
 
+    <div class="card-block" id="survey-banner" style="display:none; margin:0 16px 4px; background:var(--paper-2); border-style:dashed;">
+      <div style="font-size:15px; font-weight:700; color:var(--ink); margin-bottom:4px;">사전 설문에 참여해주세요</div>
+      <div style="font-size:13.5px; color:var(--ink-soft); line-height:1.6; margin-bottom:12px;">이번 여행에서 뭘 하고 싶은지 알려주시면 일정 짤 때 반영할게요.</div>
+      <button class="btn btn-amber" onclick="openSurvey()">설문 참여하기 (1분)</button>
+    </div>
+
     <main id="spot-list"></main>
 
     <button class="fab" onclick="openAddSpot()">＋</button>
@@ -354,6 +373,44 @@
     </div>
   </div>
 
+  <!-- ============ SURVEY SHEET ============ -->
+  <div class="sheet-backdrop" id="sheet-survey">
+    <div class="sheet">
+      <button class="close-x" onclick="closeSheet('sheet-survey')">✕</button>
+      <div class="sheet-handle"></div>
+      <h2>사전 설문</h2>
+      <p style="font-size:14.5px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 18px;">이번 여행에서 뭘 하고 싶은지 알려주세요. 일정 짤 때 참고할게요.</p>
+
+      <label class="field-label">이번 여행, 뭘 위주로 보고 싶어요? (복수 선택)</label>
+      <div class="cat-grid" id="survey-style-grid" style="grid-template-columns:repeat(2,1fr);">
+        <div class="cat-opt" data-style="맛집 위주">맛집 위주</div>
+        <div class="cat-opt" data-style="쇼핑 위주">쇼핑 위주</div>
+        <div class="cat-opt" data-style="관광·문화">관광·문화</div>
+        <div class="cat-opt" data-style="자연·힐링">자연·힐링</div>
+        <div class="cat-opt" data-style="액티비티·체험">액티비티·체험</div>
+        <div class="cat-opt" data-style="카페·감성사진">카페·감성사진</div>
+      </div>
+
+      <label class="field-label">못 먹는 음식이나 알레르기가 있나요?</label>
+      <textarea id="survey-noeat" rows="2" placeholder="예: 해산물은 못 먹어요, 오이 알레르기 있음 (없으면 비워두세요)" style="margin-bottom:14px;"></textarea>
+
+      <label class="field-label">꼭 가고 싶은 곳이 있나요?</label>
+      <textarea id="survey-mustvisit" rows="3" placeholder="예: 도톤보리, 유니버설 스튜디오 재팬"></textarea>
+
+      <button class="btn btn-primary" style="margin-top:18px;" onclick="submitSurvey()">의견 남기기</button>
+    </div>
+  </div>
+
+  <!-- ============ SURVEY RESULTS SHEET ============ -->
+  <div class="sheet-backdrop" id="sheet-survey-results">
+    <div class="sheet">
+      <button class="close-x" onclick="closeSheet('sheet-survey-results')">✕</button>
+      <div class="sheet-handle"></div>
+      <h2>일행 의견</h2>
+      <div id="survey-results-body"></div>
+    </div>
+  </div>
+
   <!-- ============ SETTINGS SHEET ============ -->
   <div class="sheet-backdrop" id="sheet-settings">
     <div class="sheet">
@@ -379,6 +436,8 @@
         </div>
       </div>
       <button class="btn btn-outline" onclick="editNickname()">닉네임 바꾸기</button>
+      <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openSurvey();">사전 설문 작성/수정하기</button>
+      <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openSurveyResults();">일행 의견 보기</button>
       <button class="btn btn-amber" style="margin-top:10px;" onclick="shareTrip()">일행 초대 링크 공유</button>
     </div>
   </div>
@@ -433,19 +492,21 @@ if(USE_FIREBASE){
 }
 
 /* ---------------- Local storage adapter (기본값) ---------------- */
-const LS_KEYS = { trips:'dh_local_trips', spots:'dh_local_spots', comments:'dh_local_comments' };
+const LS_KEYS = { trips:'dh_local_trips', spots:'dh_local_spots', comments:'dh_local_comments', survey:'dh_local_survey' };
 function lsGet(key){ try{ return JSON.parse(localStorage.getItem(key) || '{}'); }catch(e){ return {}; } }
 function lsSet(key, val){ localStorage.setItem(key, JSON.stringify(val)); }
-const LOCAL_LISTENERS = { spots:{}, comments:{} };
+const LOCAL_LISTENERS = { spots:{}, comments:{}, survey:{} };
 function notifyLocalSpots(tripCode){ (LOCAL_LISTENERS.spots[tripCode]||[]).forEach(fn=>fn()); }
 function notifyLocalComments(tripCode, spotId){
   const key = tripCode+'/'+spotId;
   (LOCAL_LISTENERS.comments[key]||[]).forEach(fn=>fn());
 }
+function notifyLocalSurvey(tripCode){ (LOCAL_LISTENERS.survey[tripCode]||[]).forEach(fn=>fn()); }
 // 같은 기기의 다른 탭에서 바뀐 내용도 반영되도록
 window.addEventListener('storage', (e)=>{
   if(e.key === LS_KEYS.spots && CURRENT_TRIP) notifyLocalSpots(CURRENT_TRIP.code);
   if(e.key === LS_KEYS.comments && CURRENT_TRIP && ACTIVE_COMMENT_SPOT) notifyLocalComments(CURRENT_TRIP.code, ACTIVE_COMMENT_SPOT);
+  if(e.key === LS_KEYS.survey && CURRENT_TRIP) notifyLocalSurvey(CURRENT_TRIP.code);
 });
 
 const LocalAdapter = {
@@ -506,6 +567,24 @@ const LocalAdapter = {
     await LocalAdapter.updateSpot(tripCode, spotId, {
       commentCount: Object.keys(all[tripCode][spotId]).length
     });
+  },
+  async setSurvey(tripCode, respUid, data){
+    const all = lsGet(LS_KEYS.survey);
+    all[tripCode] = all[tripCode] || {};
+    all[tripCode][respUid] = { ...data, updatedAt: Date.now() };
+    lsSet(LS_KEYS.survey, all);
+    notifyLocalSurvey(tripCode);
+  },
+  subscribeSurvey(tripCode, cb){
+    const run = ()=>{
+      const all = lsGet(LS_KEYS.survey)[tripCode] || {};
+      const arr = Object.entries(all).map(([respUid, v]) => ({ uid: respUid, ...v }));
+      cb(arr);
+    };
+    LOCAL_LISTENERS.survey[tripCode] = LOCAL_LISTENERS.survey[tripCode] || [];
+    LOCAL_LISTENERS.survey[tripCode].push(run);
+    run();
+    return ()=>{ LOCAL_LISTENERS.survey[tripCode] = (LOCAL_LISTENERS.survey[tripCode]||[]).filter(f=>f!==run); };
   }
 };
 
@@ -538,6 +617,14 @@ const FirebaseAdapter = {
     const spotRef = db.collection('trips').doc(tripCode).collection('spots').doc(spotId);
     await spotRef.collection('comments').add({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
     await spotRef.update({ commentCount: firebase.firestore.FieldValue.increment(1) });
+  },
+  async setSurvey(tripCode, respUid, data){
+    await db.collection('trips').doc(tripCode).collection('survey').doc(respUid)
+      .set({ ...data, updatedAt: firebase.firestore.FieldValue.serverTimestamp() }, { merge:true });
+  },
+  subscribeSurvey(tripCode, cb){
+    return db.collection('trips').doc(tripCode).collection('survey')
+      .onSnapshot(snap => cb(snap.docs.map(d => ({ uid: d.id, ...d.data() }))));
   }
 };
 
@@ -551,6 +638,11 @@ let CURRENT_FILTER = 'all';
 let UNSUB_SPOTS = null;
 let ACTIVE_COMMENT_SPOT = null;
 let UNSUB_COMMENTS = null;
+let SURVEYS = [];
+let MY_SURVEY = null;
+let UNSUB_SURVEY = null;
+let SELECTED_STYLES = new Set();
+const SURVEY_STYLE_ORDER = ['맛집 위주','쇼핑 위주','관광·문화','자연·힐링','액티비티·체험','카페·감성사진'];
 
 let SELECTED_CAT = '관광';
 let SELECTED_DOMESTIC = true;
@@ -653,6 +745,7 @@ function showTripPicker(){
 function switchTripScreen(){
   if(UNSUB_SPOTS) UNSUB_SPOTS();
   if(UNSUB_COMMENTS) UNSUB_COMMENTS();
+  if(UNSUB_SURVEY) UNSUB_SURVEY();
   showTripPicker();
 }
 
@@ -726,6 +819,15 @@ function loadTrip(code){
     console.error(err);
     toast('스팟 목록을 불러오지 못했어요.' + (USE_FIREBASE ? ' Firebase 설정을 확인해주세요.' : ''));
   }
+
+  if(UNSUB_SURVEY) UNSUB_SURVEY();
+  try{
+    UNSUB_SURVEY = DB.subscribeSurvey(code, (arr)=>{
+      SURVEYS = arr;
+      MY_SURVEY = arr.find(s=>s.uid===USER.uid) || null;
+      updateSurveyBanner();
+    });
+  }catch(err){ console.error(err); }
 }
 
 /* ---------------- Filters ---------------- */
@@ -925,6 +1027,82 @@ function copyTripLink(){
   }
   navigator.clipboard.writeText(shareLink());
   toast('초대 링크를 복사했어요');
+}
+
+/* ---------------- Survey (사전 설문) ---------------- */
+function updateSurveyBanner(){
+  const banner = document.getElementById('survey-banner');
+  if(!banner) return;
+  banner.style.display = MY_SURVEY ? 'none' : 'block';
+}
+
+function openSurvey(){
+  SELECTED_STYLES = new Set(MY_SURVEY?.styles || []);
+  document.querySelectorAll('#survey-style-grid .cat-opt').forEach(el=>{
+    el.classList.toggle('active', SELECTED_STYLES.has(el.dataset.style));
+  });
+  document.getElementById('survey-noeat').value = MY_SURVEY?.noEat || '';
+  document.getElementById('survey-mustvisit').value = MY_SURVEY?.mustVisit || '';
+  document.getElementById('sheet-survey').classList.add('open');
+}
+
+document.getElementById('survey-style-grid').addEventListener('click', (e)=>{
+  const opt = e.target.closest('.cat-opt');
+  if(!opt) return;
+  const val = opt.dataset.style;
+  if(SELECTED_STYLES.has(val)){ SELECTED_STYLES.delete(val); opt.classList.remove('active'); }
+  else { SELECTED_STYLES.add(val); opt.classList.add('active'); }
+});
+
+async function submitSurvey(){
+  const noEat = document.getElementById('survey-noeat').value.trim();
+  const mustVisit = document.getElementById('survey-mustvisit').value.trim();
+  try{
+    await DB.setSurvey(CURRENT_TRIP.code, USER.uid, {
+      nickname: USER.nickname,
+      styles: Array.from(SELECTED_STYLES),
+      noEat, mustVisit
+    });
+    closeSheet('sheet-survey');
+    toast('의견을 남겼어요');
+  }catch(e){ console.error(e); toast('제출에 실패했어요'); }
+}
+
+function openSurveyResults(){
+  renderSurveyResults();
+  document.getElementById('sheet-survey-results').classList.add('open');
+}
+
+function renderSurveyResults(){
+  const body = document.getElementById('survey-results-body');
+  if(SURVEYS.length === 0){
+    body.innerHTML = `<p style="color:var(--slate); font-size:14.5px; text-align:center; padding:30px 0;">아직 응답한 사람이 없어요.</p>`;
+    return;
+  }
+  const tally = {};
+  SURVEYS.forEach(s => (s.styles||[]).forEach(st => tally[st] = (tally[st]||0) + 1));
+  const max = Math.max(1, ...Object.values(tally));
+  const tallyHtml = SURVEY_STYLE_ORDER.filter(s => tally[s]).map(s => `
+    <div class="survey-tally-row">
+      <div class="survey-tally-label">${esc(s)}</div>
+      <div class="survey-tally-bar-wrap"><div class="survey-tally-bar" style="width:${(tally[s]/max*100)}%"></div></div>
+      <div class="survey-tally-count">${tally[s]}</div>
+    </div>
+  `).join('');
+
+  const membersHtml = SURVEYS.map(s => `
+    <div class="survey-member-card">
+      <div class="sm-name">${esc(s.nickname || '익명')}</div>
+      ${(s.styles && s.styles.length) ? `<div class="sm-styles">${s.styles.map(st=>`<span class="sm-tag">${esc(st)}</span>`).join('')}</div>` : ''}
+      ${s.mustVisit ? `<div class="sm-row"><b>가고 싶은 곳</b> ${esc(s.mustVisit)}</div>` : ''}
+      ${s.noEat ? `<div class="sm-row"><b>못 먹는 음식</b> ${esc(s.noEat)}</div>` : ''}
+    </div>
+  `).join('');
+
+  body.innerHTML = `
+    ${tallyHtml ? `<div style="margin-bottom:20px;">${tallyHtml}</div>` : ''}
+    ${membersHtml}
+  `;
 }
 
 boot();
