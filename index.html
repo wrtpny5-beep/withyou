@@ -256,6 +256,15 @@
   .survey-member-card .sm-tag{font-size:12.5px; font-weight:600; background:var(--paper-2); color:var(--ink-soft); padding:4px 10px; border-radius:999px;}
   .survey-member-card .sm-row{font-size:14px; color:var(--ink-soft); line-height:1.6; margin-top:5px;}
   .survey-member-card .sm-row b{color:var(--ink); font-weight:700;}
+
+  /* ---------- Route builder ---------- */
+  .route-row{display:flex; align-items:center; gap:12px; padding:12px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:8px; background:#fff; cursor:pointer;}
+  .route-row.selected{border-color:var(--amber); background:rgba(232,163,61,0.08);}
+  .route-num{width:26px; height:26px; border-radius:50%; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; color:var(--ink-soft); flex:0 0 auto;}
+  .route-row.selected .route-num{background:var(--amber); border-color:var(--amber); color:#fff;}
+  .route-row-info{flex:1; min-width:0;}
+  .route-row-name{font-size:15px; font-weight:600; color:var(--ink);}
+  .route-row-meta{font-size:12.5px; color:var(--slate); margin-top:2px;}
 </style>
 
 </head>
@@ -326,6 +335,7 @@
       <div class="chip" data-filter="카페" onclick="setFilter('카페')">카페</div>
       <div class="chip" data-filter="숙소" onclick="setFilter('숙소')">숙소</div>
       <div class="chip" data-filter="액티비티" onclick="setFilter('액티비티')">활동</div>
+      <div class="chip" id="chip-route" onclick="openRouteBuilder()" style="border-color:var(--amber-deep); color:var(--amber-deep); font-weight:700;">동선 만들기</div>
     </div>
 
     <div class="card-block" id="survey-banner" style="display:none; margin:0 16px 4px; background:var(--paper-2); border-style:dashed;">
@@ -412,6 +422,29 @@
     </div>
   </div>
 
+  <!-- ============ ROUTE BUILDER SHEET ============ -->
+  <div class="sheet-backdrop" id="sheet-route">
+    <div class="sheet">
+      <button class="close-x" onclick="closeSheet('sheet-route')">✕</button>
+      <div class="sheet-handle"></div>
+      <h2>동선 만들기</h2>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">순서대로 탭하면 번호가 매겨져요. 그 순서 그대로 길찾기 경로가 연결됩니다.</p>
+
+      <div id="route-spot-list" style="margin-bottom:16px;"></div>
+
+      <label class="field-label">이동 수단</label>
+      <div class="toggle-row" id="route-mode-row">
+        <div class="toggle-opt active" data-mode="walking">도보</div>
+        <div class="toggle-opt" data-mode="transit">대중교통</div>
+        <div class="toggle-opt" data-mode="driving">자동차</div>
+      </div>
+      <p id="route-note" style="font-size:12.5px; color:var(--slate); line-height:1.6; margin:10px 0 4px;"></p>
+
+      <button class="btn btn-outline" style="margin-top:8px;" onclick="clearRoute()">선택 초기화</button>
+      <button class="btn btn-primary" style="margin-top:10px;" onclick="openRouteNav()">경로 길찾기 열기</button>
+    </div>
+  </div>
+
   <!-- ============ SETTINGS SHEET ============ -->
   <div class="sheet-backdrop" id="sheet-settings">
     <div class="sheet">
@@ -437,6 +470,7 @@
         </div>
       </div>
       <button class="btn btn-outline" onclick="editNickname()">닉네임 바꾸기</button>
+      <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openRouteBuilder();">동선 만들기 (여러 곳 한번에 길찾기)</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openSurvey();">사전 설문 작성/수정하기</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openSurveyResults();">일행 의견 보기</button>
       <button class="btn btn-amber" style="margin-top:10px;" onclick="shareTrip()">일행 초대 링크 공유</button>
@@ -792,6 +826,7 @@ function rememberTrip(code, name){
 
 function loadTrip(code){
   CURRENT_TRIP = { code };
+  ROUTE_SELECTION = [];
   localStorage.setItem('dh_last_trip', code);
   document.getElementById('screen-trips').style.display = 'none';
   document.getElementById('screen-main').style.display = 'flex';
@@ -951,10 +986,91 @@ function openNav(spotId){
   if(!s) return;
   const q = encodeURIComponent(s.address || s.name);
   if(s.isDomestic){
+    // 카카오맵: 장소를 찾아 보여주고, 그 화면 안의 '길찾기' 버튼 한 번으로 현재 위치 기준 경로가 시작돼요.
     window.open(`https://map.kakao.com/link/search/${q}`, '_blank');
   } else {
-    window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, '_blank');
+    // 구글맵: 목적지가 바로 채워진 길찾기 화면으로 열려서, 시작 위치(내 위치)만 확인하면 바로 경로가 나와요.
+    window.open(`https://www.google.com/maps/dir/?api=1&destination=${q}`, '_blank');
   }
+}
+
+/* ---------------- Route builder (여러 곳 한번에 길찾기) ---------------- */
+let ROUTE_SELECTION = []; // spot id 배열, 선택한 순서 그대로
+let ROUTE_MODE = 'walking';
+
+function openRouteBuilder(){
+  renderRouteList();
+  updateRouteNote();
+  document.getElementById('sheet-route').classList.add('open');
+}
+
+function renderRouteList(){
+  const el = document.getElementById('route-spot-list');
+  if(SPOTS.length === 0){
+    el.innerHTML = `<p style="color:var(--slate); font-size:14px; text-align:center; padding:24px 0;">등록된 스팟이 없어요. 먼저 스팟을 추가해주세요.</p>`;
+    return;
+  }
+  el.innerHTML = SPOTS.map(s=>{
+    const idx = ROUTE_SELECTION.indexOf(s.id);
+    const selected = idx > -1;
+    return `
+    <div class="route-row ${selected?'selected':''}" onclick="toggleRouteSpot('${s.id}')">
+      <div class="route-num">${selected ? (idx+1) : ''}</div>
+      <div class="route-row-info">
+        <div class="route-row-name">${esc(s.name)}</div>
+        <div class="route-row-meta">${esc(s.category)} · ${s.isDomestic?'국내':'해외'}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function toggleRouteSpot(spotId){
+  const idx = ROUTE_SELECTION.indexOf(spotId);
+  if(idx > -1) ROUTE_SELECTION.splice(idx, 1);
+  else ROUTE_SELECTION.push(spotId);
+  renderRouteList();
+  updateRouteNote();
+}
+
+function clearRoute(){
+  ROUTE_SELECTION = [];
+  renderRouteList();
+  updateRouteNote();
+}
+
+document.getElementById('route-mode-row').addEventListener('click', (e)=>{
+  const opt = e.target.closest('.toggle-opt');
+  if(!opt) return;
+  document.querySelectorAll('#route-mode-row .toggle-opt').forEach(o=>o.classList.remove('active'));
+  opt.classList.add('active');
+  ROUTE_MODE = opt.dataset.mode;
+  updateRouteNote();
+});
+
+function updateRouteNote(){
+  const note = document.getElementById('route-note');
+  if(!note) return;
+  const hasDomestic = ROUTE_SELECTION.some(id=>{
+    const s = SPOTS.find(x=>x.id===id);
+    return s && s.isDomestic;
+  });
+  if(ROUTE_MODE === 'driving' && hasDomestic){
+    note.textContent = '국내 스팟이 포함된 자동차 경로는 구글맵에서 부정확할 수 있어요. 도보나 대중교통을 추천해요.';
+  } else {
+    note.textContent = '선택한 순서 그대로(첫 번째 → 마지막) 구글맵 경로가 열려요.';
+  }
+}
+
+function openRouteNav(){
+  if(ROUTE_SELECTION.length < 2){ toast('두 곳 이상 선택해주세요'); return; }
+  const spots = ROUTE_SELECTION.map(id => SPOTS.find(s=>s.id===id)).filter(Boolean);
+  const origin = encodeURIComponent(spots[0].address || spots[0].name);
+  const destination = encodeURIComponent(spots[spots.length-1].address || spots[spots.length-1].name);
+  const waypoints = spots.slice(1, -1).map(s => encodeURIComponent(s.address || s.name)).join('|');
+  let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${ROUTE_MODE}`;
+  if(waypoints) url += `&waypoints=${waypoints}`;
+  window.open(url, '_blank');
+  closeSheet('sheet-route');
 }
 
 /* ---------------- Add spot sheet ---------------- */
