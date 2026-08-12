@@ -100,11 +100,11 @@
   header.topbar .trip-name{font-family:var(--font-display); font-weight:800; font-size:20px; display:flex; align-items:center; gap:8px;}
   header.topbar .trip-code{font-size:12px; letter-spacing:.1em; color:var(--amber); opacity:.95; margin-top:4px; font-weight:500;}
   header.topbar .icon-btn{
-    height:38px; padding:0 14px; border-radius:10px; border:1px solid rgba(250,246,238,0.3);
+    height:36px; padding:0 11px; border-radius:9px; border:1px solid rgba(250,246,238,0.3);
     background:rgba(250,246,238,0.08); color:var(--paper); display:flex; align-items:center; justify-content:center;
-    font-size:13.5px; font-weight:700; cursor:pointer;
+    font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;
   }
-  .header-actions{display:flex; gap:8px;}
+  .header-actions{display:flex; gap:6px;}
 
   /* ---------- Filter chips ---------- */
   .chipbar{
@@ -311,6 +311,7 @@
         <div class="trip-code">CODE <span id="hdr-trip-code">------</span> · 탭하여 설정</div>
       </div>
       <div class="header-actions">
+        <button class="icon-btn" onclick="openSettings()" title="설정">설정</button>
         <button class="icon-btn" onclick="switchTripScreen()" title="여행 바꾸기">전환</button>
         <button class="icon-btn" onclick="shareTrip()" title="공유">공유</button>
       </div>
