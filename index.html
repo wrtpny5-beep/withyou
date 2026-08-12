@@ -132,11 +132,6 @@
   }
   .spot-card.visited{opacity:.62;}
   .spot-top{padding:16px 16px 12px; display:flex; gap:12px;}
-  .spot-cat-badge{
-    flex:0 0 auto; width:46px; height:46px; border-radius:10px; background:var(--ink);
-    color:var(--amber); display:flex; align-items:center; justify-content:center;
-    font-size:18px; font-weight:800; font-family:var(--font-display);
-  }
   .spot-info{flex:1; min-width:0; padding-right:56px;}
   .spot-name{font-family:var(--font-display); font-size:18px; font-weight:700; margin:0 0 4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .spot-name .visited-tag{font-size:11.5px; font-family:var(--font-body); font-weight:700; background:var(--stamp-green); color:#fff; padding:3px 8px; border-radius:6px; letter-spacing:.02em;}
@@ -557,7 +552,6 @@ let UNSUB_SPOTS = null;
 let ACTIVE_COMMENT_SPOT = null;
 let UNSUB_COMMENTS = null;
 
-const CAT_INITIAL = {관광:'관',맛집:'맛',카페:'카',숙소:'숙',액티비티:'액',기타:'기'};
 let SELECTED_CAT = '관광';
 let SELECTED_DOMESTIC = true;
 
@@ -768,7 +762,6 @@ function spotCardHtml(s){
   <div class="spot-card ${s.visited?'visited':''}">
     <div class="stamp-mark">VOTES<span>${up}·${down}</span></div>
     <div class="spot-top">
-      <div class="spot-cat-badge">${CAT_INITIAL[s.category]||'기'}</div>
       <div class="spot-info">
         <div class="spot-name">${esc(s.name)} ${s.visited?'<span class="visited-tag">다녀옴</span>':''}</div>
         <div class="spot-meta">${esc(s.category)} · ${s.isDomestic?'국내':'해외'} · ${esc(s.addedBy||'')}</div>
