@@ -7,7 +7,7 @@
 <meta name="theme-color" content="#1B2A4A">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Song+Myung&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
 <style>
   :root{
     --ink:#1B2A4A;
@@ -24,7 +24,7 @@
     --safe-top: env(safe-area-inset-top, 0px);
     --safe-bottom: env(safe-area-inset-bottom, 0px);
     --font-body: 'Noto Sans KR', -apple-system, sans-serif;
-    --font-display: 'Song Myung', serif;
+    --font-display: 'Noto Sans KR', -apple-system, sans-serif;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color: transparent;}
   html{-webkit-text-size-adjust:100%; text-size-adjust:100%;}
@@ -38,7 +38,7 @@
     display:flex;
     justify-content:center;
   }
-  .display{font-family:var(--font-display);}
+  .display{font-family:var(--font-display); font-weight:800;}
   #app{
     width:100%;
     max-width:480px;
@@ -62,12 +62,12 @@
       var(--paper);
   }
   .onboard .mark{font-size:13.5px; letter-spacing:.24em; color:var(--amber-deep); font-weight:700; margin-bottom:8px;}
-  .onboard h1{font-family:var(--font-display); font-size:36px; line-height:1.3; margin:0 0 12px; font-weight:400;}
+  .onboard h1{font-family:var(--font-display); font-size:34px; line-height:1.3; margin:0 0 12px; font-weight:800;}
   .onboard p.sub{color:var(--ink-soft); font-size:17px; line-height:1.65; margin:0 0 30px;}
   .stamp-divider{display:flex; align-items:center; gap:10px; margin:24px 0; color:var(--slate); font-size:13.5px;}
   .stamp-divider::before, .stamp-divider::after{content:''; flex:1; border-top:1px dashed var(--line);}
   .card-block{background:#fff; border:1px solid var(--line); border-radius:16px; padding:20px; box-shadow:var(--shadow); margin-bottom:14px;}
-  .card-block h3{margin:0 0 12px; font-size:18px; font-family:var(--font-display); font-weight:400;}
+  .card-block h3{margin:0 0 12px; font-size:17px; font-family:var(--font-display); font-weight:700;}
   input[type=text], input[type=email], textarea{
     width:100%; border:1.5px solid var(--line); background:var(--paper-2); border-radius:10px;
     padding:14px; font-family:var(--font-body); font-size:16px; color:var(--ink); line-height:1.5;
@@ -97,12 +97,12 @@
     display:flex; align-items:center; justify-content:space-between;
     border-bottom:3px dashed var(--amber);
   }
-  header.topbar .trip-name{font-family:var(--font-display); font-size:21px; display:flex; align-items:center; gap:8px;}
+  header.topbar .trip-name{font-family:var(--font-display); font-weight:800; font-size:20px; display:flex; align-items:center; gap:8px;}
   header.topbar .trip-code{font-size:12px; letter-spacing:.1em; color:var(--amber); opacity:.95; margin-top:4px; font-weight:500;}
   header.topbar .icon-btn{
-    width:42px; height:42px; border-radius:50%; border:1px solid rgba(250,246,238,0.3);
+    height:38px; padding:0 14px; border-radius:10px; border:1px solid rgba(250,246,238,0.3);
     background:rgba(250,246,238,0.08); color:var(--paper); display:flex; align-items:center; justify-content:center;
-    font-size:18px; cursor:pointer;
+    font-size:13.5px; font-weight:700; cursor:pointer;
   }
   .header-actions{display:flex; gap:8px;}
 
@@ -133,11 +133,12 @@
   .spot-card.visited{opacity:.62;}
   .spot-top{padding:16px 16px 12px; display:flex; gap:12px;}
   .spot-cat-badge{
-    flex:0 0 auto; width:46px; height:46px; border-radius:10px; background:var(--paper-2);
-    display:flex; align-items:center; justify-content:center; font-size:22px;
+    flex:0 0 auto; width:46px; height:46px; border-radius:10px; background:var(--ink);
+    color:var(--amber); display:flex; align-items:center; justify-content:center;
+    font-size:18px; font-weight:800; font-family:var(--font-display);
   }
   .spot-info{flex:1; min-width:0; padding-right:56px;}
-  .spot-name{font-family:var(--font-display); font-size:19.5px; font-weight:400; margin:0 0 4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
+  .spot-name{font-family:var(--font-display); font-size:18px; font-weight:700; margin:0 0 4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .spot-name .visited-tag{font-size:11.5px; font-family:var(--font-body); font-weight:700; background:var(--stamp-green); color:#fff; padding:3px 8px; border-radius:6px; letter-spacing:.02em;}
   .spot-meta{font-size:13.5px; color:var(--slate); font-weight:500;}
   .spot-memo{font-size:15.5px; color:var(--ink-soft); line-height:1.65; padding:0 16px 12px; white-space:pre-wrap;}
@@ -148,7 +149,7 @@
     align-items:center; justify-content:center; transform:rotate(-8deg); font-size:9.5px; font-weight:700;
     letter-spacing:.04em; line-height:1.2; background:rgba(47,111,78,0.04); pointer-events:none;
   }
-  .stamp-mark span{font-size:14.5px; font-family:var(--font-display);}
+  .stamp-mark span{font-size:14.5px; font-family:var(--font-display); font-weight:800;}
 
   .perforation{
     border-top:1.5px dashed var(--line); position:relative; margin:0 16px;
@@ -209,7 +210,7 @@
   }
   @keyframes slideup{from{transform:translateY(30px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   .sheet-handle{width:38px; height:4px; background:var(--line); border-radius:3px; margin:0 auto 16px;}
-  .sheet h2{font-family:var(--font-display); font-size:22px; font-weight:400; margin:0 0 18px;}
+  .sheet h2{font-family:var(--font-display); font-size:21px; font-weight:800; margin:0 0 18px;}
   .toggle-row{display:flex; gap:8px; margin-bottom:14px;}
   .toggle-opt{
     flex:1; text-align:center; padding:12px; border-radius:10px; border:1.5px solid var(--line);
@@ -219,11 +220,10 @@
   .toggle-opt.active{background:var(--ink); color:var(--paper); border-color:var(--ink);}
   .cat-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px; margin-bottom:14px;}
   .cat-opt{
-    display:flex; flex-direction:column; align-items:center; gap:5px; padding:12px 4px;
-    border:1.5px solid var(--line); border-radius:12px; background:#fff; cursor:pointer; font-size:13px;
-    font-weight:600; color:var(--ink-soft); min-height:64px; justify-content:center;
+    display:flex; align-items:center; justify-content:center; padding:14px 4px;
+    border:1.5px solid var(--line); border-radius:12px; background:#fff; cursor:pointer; font-size:14px;
+    font-weight:600; color:var(--ink-soft); min-height:50px;
   }
-  .cat-opt .g{font-size:23px;}
   .cat-opt.active{border-color:var(--amber); background:rgba(232,163,61,0.12); color:var(--ink);}
   .close-x{position:absolute; top:14px; right:16px; font-size:22px; background:none; border:none; color:var(--slate); cursor:pointer; width:40px; height:40px;}
 
@@ -240,13 +240,13 @@
   .settings-list .s-item:last-child{border-bottom:none;}
   .settings-list .s-label{font-size:15.5px; font-weight:500; color:var(--ink-soft);}
   .settings-list .s-value{font-size:14.5px; color:var(--slate); font-weight:500;}
-  .code-pill{background:var(--paper-2); border:1px dashed var(--amber-deep); padding:7px 14px; border-radius:8px; font-family:var(--font-display); letter-spacing:.08em; font-size:16px;}
+  .code-pill{background:var(--paper-2); border:1px dashed var(--amber-deep); padding:7px 14px; border-radius:8px; font-family:var(--font-display); font-weight:800; letter-spacing:.06em; font-size:15px;}
 
   .trip-pick-item{
     display:flex; align-items:center; justify-content:space-between; padding:16px; background:#fff;
     border:1px solid var(--line); border-radius:12px; margin-bottom:10px; cursor:pointer;
   }
-  .trip-pick-item .tp-name{font-family:var(--font-display); font-size:17px;}
+  .trip-pick-item .tp-name{font-family:var(--font-display); font-weight:700; font-size:16.5px;}
   .trip-pick-item .tp-code{font-size:12.5px; color:var(--slate); margin-top:3px; font-weight:500;}
 </style>
 
@@ -273,7 +273,7 @@
     <p class="sub" id="greet-text">반가워요.</p>
     <div class="card-block" id="mode-banner" style="display:none; background:var(--paper-2); border-style:dashed;">
       <div style="font-size:12.5px; color:var(--ink-soft); line-height:1.6;">
-        🧪 <b>로컬 모드</b>로 열려있어요. 지금 만드는 여행은 이 기기에만 저장돼요.
+        <b>로컬 모드</b>로 열려있어요. 지금 만드는 여행은 이 기기에만 저장돼요.
         일행과 실시간으로 공유하려면 Firebase 연동이 필요해요.
       </div>
     </div>
@@ -299,12 +299,12 @@
   <div id="screen-main" style="display:none; flex-direction:column; flex:1;">
     <header class="topbar">
       <div onclick="openSettings()" style="cursor:pointer;">
-        <div class="trip-name">📔 <span id="hdr-trip-name">여행</span></div>
+        <div class="trip-name"><span id="hdr-trip-name">여행</span></div>
         <div class="trip-code">CODE <span id="hdr-trip-code">------</span> · 탭하여 설정</div>
       </div>
       <div class="header-actions">
-        <button class="icon-btn" onclick="switchTripScreen()" title="여행 바꾸기">🔁</button>
-        <button class="icon-btn" onclick="shareTrip()" title="공유">📤</button>
+        <button class="icon-btn" onclick="switchTripScreen()" title="여행 바꾸기">전환</button>
+        <button class="icon-btn" onclick="shareTrip()" title="공유">공유</button>
       </div>
     </header>
 
@@ -312,11 +312,11 @@
       <div class="chip active" data-filter="all" onclick="setFilter('all')">전체</div>
       <div class="chip" data-filter="todo" onclick="setFilter('todo')">가볼 곳</div>
       <div class="chip" data-filter="visited" onclick="setFilter('visited')">다녀옴</div>
-      <div class="chip" data-filter="관광" onclick="setFilter('관광')">🏛️ 관광</div>
-      <div class="chip" data-filter="맛집" onclick="setFilter('맛집')">🍽️ 맛집</div>
-      <div class="chip" data-filter="카페" onclick="setFilter('카페')">☕ 카페</div>
-      <div class="chip" data-filter="숙소" onclick="setFilter('숙소')">🛏️ 숙소</div>
-      <div class="chip" data-filter="액티비티" onclick="setFilter('액티비티')">🎒 활동</div>
+      <div class="chip" data-filter="관광" onclick="setFilter('관광')">관광</div>
+      <div class="chip" data-filter="맛집" onclick="setFilter('맛집')">맛집</div>
+      <div class="chip" data-filter="카페" onclick="setFilter('카페')">카페</div>
+      <div class="chip" data-filter="숙소" onclick="setFilter('숙소')">숙소</div>
+      <div class="chip" data-filter="액티비티" onclick="setFilter('액티비티')">활동</div>
     </div>
 
     <main id="spot-list"></main>
@@ -335,18 +335,18 @@
 
       <label class="field-label">카테고리</label>
       <div class="cat-grid" id="cat-grid">
-        <div class="cat-opt active" data-cat="관광"><span class="g">🏛️</span>관광</div>
-        <div class="cat-opt" data-cat="맛집"><span class="g">🍽️</span>맛집</div>
-        <div class="cat-opt" data-cat="카페"><span class="g">☕</span>카페</div>
-        <div class="cat-opt" data-cat="숙소"><span class="g">🛏️</span>숙소</div>
-        <div class="cat-opt" data-cat="액티비티"><span class="g">🎒</span>액티비티</div>
-        <div class="cat-opt" data-cat="기타"><span class="g">📍</span>기타</div>
+        <div class="cat-opt active" data-cat="관광">관광</div>
+        <div class="cat-opt" data-cat="맛집">맛집</div>
+        <div class="cat-opt" data-cat="카페">카페</div>
+        <div class="cat-opt" data-cat="숙소">숙소</div>
+        <div class="cat-opt" data-cat="액티비티">액티비티</div>
+        <div class="cat-opt" data-cat="기타">기타</div>
       </div>
 
       <label class="field-label">지역 (길찾기 앱 선택에 사용돼요)</label>
       <div class="toggle-row">
-        <div class="toggle-opt active" id="toggle-domestic" onclick="setRegionToggle(true)">🇰🇷 국내</div>
-        <div class="toggle-opt" id="toggle-overseas" onclick="setRegionToggle(false)">✈️ 해외</div>
+        <div class="toggle-opt active" id="toggle-domestic" onclick="setRegionToggle(true)">국내</div>
+        <div class="toggle-opt" id="toggle-overseas" onclick="setRegionToggle(false)">해외</div>
       </div>
 
       <label class="field-label">장소명 / 주소 (지도 검색어로 사용돼요)</label>
@@ -384,7 +384,7 @@
         </div>
       </div>
       <button class="btn btn-outline" onclick="editNickname()">닉네임 바꾸기</button>
-      <button class="btn btn-amber" style="margin-top:10px;" onclick="shareTrip()">📤 일행 초대 링크 공유</button>
+      <button class="btn btn-amber" style="margin-top:10px;" onclick="shareTrip()">일행 초대 링크 공유</button>
     </div>
   </div>
 
@@ -557,7 +557,7 @@ let UNSUB_SPOTS = null;
 let ACTIVE_COMMENT_SPOT = null;
 let UNSUB_COMMENTS = null;
 
-const CAT_ICON = {관광:'🏛️',맛집:'🍽️',카페:'☕',숙소:'🛏️',액티비티:'🎒',기타:'📍'};
+const CAT_INITIAL = {관광:'관',맛집:'맛',카페:'카',숙소:'숙',액티비티:'액',기타:'기'};
 let SELECTED_CAT = '관광';
 let SELECTED_DOMESTIC = true;
 
@@ -750,7 +750,7 @@ function renderSpots(){
   else if(!['all'].includes(CURRENT_FILTER)) list = list.filter(s=>s.category===CURRENT_FILTER);
 
   if(list.length === 0){
-    main.innerHTML = `<div class="empty-state"><div class="glyph">🧭</div><p>아직 등록된 스팟이 없어요.<br>오른쪽 아래 + 버튼으로 첫 스팟을 추가해보세요.</p></div>`;
+    main.innerHTML = `<div class="empty-state"><p>아직 등록된 스팟이 없어요.<br>오른쪽 아래 + 버튼으로 첫 스팟을 추가해보세요.</p></div>`;
     return;
   }
 
@@ -768,7 +768,7 @@ function spotCardHtml(s){
   <div class="spot-card ${s.visited?'visited':''}">
     <div class="stamp-mark">VOTES<span>${up}·${down}</span></div>
     <div class="spot-top">
-      <div class="spot-cat-badge">${CAT_ICON[s.category]||'📍'}</div>
+      <div class="spot-cat-badge">${CAT_INITIAL[s.category]||'기'}</div>
       <div class="spot-info">
         <div class="spot-name">${esc(s.name)} ${s.visited?'<span class="visited-tag">다녀옴</span>':''}</div>
         <div class="spot-meta">${esc(s.category)} · ${s.isDomestic?'국내':'해외'} · ${esc(s.addedBy||'')}</div>
@@ -777,12 +777,12 @@ function spotCardHtml(s){
     ${s.memo ? `<div class="spot-memo">${esc(s.memo)}</div>` : ''}
     <div class="perforation"></div>
     <div class="spot-actions">
-      <button class="vote-btn ${myVote==='up'?'mine-up':''}" onclick="vote('${s.id}','up')">👍 ${up}</button>
-      <button class="vote-btn ${myVote==='down'?'mine-down':''}" onclick="vote('${s.id}','down')">👎 ${down}</button>
-      <button class="icon-action" onclick="toggleComments('${s.id}')">💬 ${commentCount}</button>
+      <button class="vote-btn ${myVote==='up'?'mine-up':''}" onclick="vote('${s.id}','up')">찬성 ${up}</button>
+      <button class="vote-btn ${myVote==='down'?'mine-down':''}" onclick="vote('${s.id}','down')">반대 ${down}</button>
+      <button class="icon-action" onclick="toggleComments('${s.id}')">댓글 ${commentCount}</button>
       <div class="spacer"></div>
       <button class="icon-action" onclick="toggleVisited('${s.id}', ${!!s.visited})" title="다녀옴 표시">${s.visited?'↩︎':'✔︎'}</button>
-      <button class="nav-btn" onclick="openNav('${s.id}')">🧭 길찾기</button>
+      <button class="nav-btn" onclick="openNav('${s.id}')">길찾기</button>
     </div>
     <div class="comments-panel" id="comments-${s.id}"></div>
   </div>`;
