@@ -354,7 +354,7 @@
     <div class="sheet">
       <button class="close-x" onclick="closeSheet('sheet-add')">✕</button>
       <div class="sheet-handle"></div>
-      <h2>스팟 추가하기</h2>
+      <h2 id="add-spot-heading">스팟 추가하기</h2>
       <label class="field-label">이름</label>
       <input type="text" id="new-spot-name" placeholder="예: 호이안 야시장" style="margin-bottom:14px;">
 
@@ -375,12 +375,14 @@
       </div>
 
       <label class="field-label">장소명 / 주소 (지도 검색어로 사용돼요)</label>
-      <input type="text" id="new-spot-address" placeholder="예: 다낭 미케비치" style="margin-bottom:14px;">
+      <input type="text" id="new-spot-address" placeholder="예: 오사카 아메무라 (도시명을 꼭 같이 적어주세요)" style="margin-bottom:6px;">
+      <p style="font-size:12px; color:var(--slate); line-height:1.5; margin:0 0 14px;">동명의 장소가 있을 수 있어요. "아메무라"보다 "오사카 아메무라"처럼 도시명을 같이 적으면 길찾기가 더 정확해져요.</p>
 
       <label class="field-label">메모 (선택)</label>
       <textarea id="new-spot-memo" rows="3" placeholder="가고 싶은 이유, 참고 정보 등"></textarea>
 
-      <button class="btn btn-primary" style="margin-top:18px;" onclick="submitNewSpot()">추가하기</button>
+      <button class="btn btn-primary" style="margin-top:18px;" id="add-spot-submit-btn" onclick="submitNewSpot()">추가하기</button>
+      <button class="btn btn-ghost" id="delete-spot-btn" style="display:none; margin-top:12px; width:100%; text-align:center;" onclick="deleteCurrentSpot()">이 스팟 삭제하기</button>
     </div>
   </div>
 
@@ -579,6 +581,13 @@ const LocalAdapter = {
     lsSet(LS_KEYS.spots, all);
     notifyLocalSpots(tripCode);
   },
+  async deleteSpot(tripCode, spotId){
+    const all = lsGet(LS_KEYS.spots);
+    if(all[tripCode]) { delete all[tripCode][spotId]; lsSet(LS_KEYS.spots, all); }
+    const comments = lsGet(LS_KEYS.comments);
+    if(comments[tripCode]) { delete comments[tripCode][spotId]; lsSet(LS_KEYS.comments, comments); }
+    notifyLocalSpots(tripCode);
+  },
   subscribeComments(tripCode, spotId, cb){
     const key = tripCode+'/'+spotId;
     const run = ()=>{
@@ -642,6 +651,9 @@ const FirebaseAdapter = {
   },
   async updateSpot(tripCode, spotId, patch){
     await db.collection('trips').doc(tripCode).collection('spots').doc(spotId).update(patch);
+  },
+  async deleteSpot(tripCode, spotId){
+    await db.collection('trips').doc(tripCode).collection('spots').doc(spotId).delete();
   },
   subscribeComments(tripCode, spotId, cb){
     return db.collection('trips').doc(tripCode).collection('spots').doc(spotId).collection('comments')
@@ -912,6 +924,7 @@ function spotCardHtml(s){
       <button class="vote-btn ${myVote==='down'?'mine-down':''}" onclick="vote('${s.id}','down')">반대 ${down}</button>
       <button class="icon-action" onclick="toggleComments('${s.id}')">댓글 ${commentCount}</button>
       <div class="spacer"></div>
+      <button class="icon-action" onclick="openEditSpot('${s.id}')" title="수정">수정</button>
       <button class="icon-action" onclick="toggleVisited('${s.id}', ${!!s.visited})" title="다녀옴 표시">${s.visited?'↩︎':'✔︎'}</button>
       <button class="nav-btn" onclick="openNav('${s.id}')">길찾기</button>
     </div>
@@ -1073,17 +1086,50 @@ function openRouteNav(){
   closeSheet('sheet-route');
 }
 
-/* ---------------- Add spot sheet ---------------- */
+/* ---------------- Add / edit spot sheet ---------------- */
+let EDITING_SPOT_ID = null;
+
+function resetSpotForm(){
+  document.getElementById('new-spot-name').value = '';
+  document.getElementById('new-spot-address').value = '';
+  document.getElementById('new-spot-memo').value = '';
+  SELECTED_CAT = '관광';
+  document.querySelectorAll('#cat-grid .cat-opt').forEach(o=> o.classList.toggle('active', o.dataset.cat===SELECTED_CAT));
+  setRegionToggle(true);
+}
+
 function openAddSpot(){
+  EDITING_SPOT_ID = null;
+  resetSpotForm();
+  document.getElementById('add-spot-heading').textContent = '스팟 추가하기';
+  document.getElementById('add-spot-submit-btn').textContent = '추가하기';
+  document.getElementById('delete-spot-btn').style.display = 'none';
   document.getElementById('sheet-add').classList.add('open');
 }
+
+function openEditSpot(spotId){
+  const s = SPOTS.find(x=>x.id===spotId);
+  if(!s) return;
+  EDITING_SPOT_ID = spotId;
+  document.getElementById('new-spot-name').value = s.name || '';
+  document.getElementById('new-spot-address').value = s.address || '';
+  document.getElementById('new-spot-memo').value = s.memo || '';
+  SELECTED_CAT = s.category || '관광';
+  document.querySelectorAll('#cat-grid .cat-opt').forEach(o=> o.classList.toggle('active', o.dataset.cat===SELECTED_CAT));
+  setRegionToggle(!!s.isDomestic);
+  document.getElementById('add-spot-heading').textContent = '스팟 수정하기';
+  document.getElementById('add-spot-submit-btn').textContent = '저장하기';
+  document.getElementById('delete-spot-btn').style.display = 'block';
+  document.getElementById('sheet-add').classList.add('open');
+}
+
 function closeSheet(id){
   document.getElementById(id).classList.remove('open');
 }
 document.getElementById('cat-grid').addEventListener('click', (e)=>{
   const opt = e.target.closest('.cat-opt');
   if(!opt) return;
-  document.querySelectorAll('.cat-opt').forEach(o=>o.classList.remove('active'));
+  document.querySelectorAll('#cat-grid .cat-opt').forEach(o=>o.classList.remove('active'));
   opt.classList.add('active');
   SELECTED_CAT = opt.dataset.cat;
 });
@@ -1100,20 +1146,43 @@ async function submitNewSpot(){
   if(!name){ toast('이름을 입력해주세요'); return; }
 
   try{
-    await DB.addSpot(CURRENT_TRIP.code, {
-      name, address: address || name, memo,
-      category: SELECTED_CAT, isDomestic: SELECTED_DOMESTIC,
-      votes: {}, visited: false, commentCount: 0,
-      addedBy: USER.nickname
-    });
-    document.getElementById('new-spot-name').value='';
-    document.getElementById('new-spot-address').value='';
-    document.getElementById('new-spot-memo').value='';
+    if(EDITING_SPOT_ID){
+      await DB.updateSpot(CURRENT_TRIP.code, EDITING_SPOT_ID, {
+        name, address: address || name, memo,
+        category: SELECTED_CAT, isDomestic: SELECTED_DOMESTIC
+      });
+      toast('스팟을 수정했어요');
+    } else {
+      await DB.addSpot(CURRENT_TRIP.code, {
+        name, address: address || name, memo,
+        category: SELECTED_CAT, isDomestic: SELECTED_DOMESTIC,
+        votes: {}, visited: false, commentCount: 0,
+        addedBy: USER.nickname
+      });
+      toast('스팟을 추가했어요');
+    }
+    EDITING_SPOT_ID = null;
+    resetSpotForm();
     closeSheet('sheet-add');
-    toast('스팟을 추가했어요');
   }catch(e){
     console.error(e);
-    toast('추가에 실패했어요.' + (USE_FIREBASE ? ' Firebase 설정을 확인해주세요.' : ''));
+    toast('저장에 실패했어요.' + (USE_FIREBASE ? ' Firebase 설정을 확인해주세요.' : ''));
+  }
+}
+
+async function deleteCurrentSpot(){
+  if(!EDITING_SPOT_ID) return;
+  const s = SPOTS.find(x=>x.id===EDITING_SPOT_ID);
+  if(!confirm(`"${s ? s.name : '이 스팟'}"을(를) 삭제할까요? 되돌릴 수 없어요.`)) return;
+  try{
+    await DB.deleteSpot(CURRENT_TRIP.code, EDITING_SPOT_ID);
+    EDITING_SPOT_ID = null;
+    resetSpotForm();
+    closeSheet('sheet-add');
+    toast('스팟을 삭제했어요');
+  }catch(e){
+    console.error(e);
+    toast('삭제에 실패했어요');
   }
 }
 
