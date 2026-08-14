@@ -40,7 +40,7 @@
     min-height:100vh;
     display:flex;
     justify-content:center;
-    background:linear-gradient(160deg, #C7C2DC 0%, #8C7B82 55%, #FDF8F0 100%);
+    background:linear-gradient(160deg, #FDF8F0 0%, #EFE4D4 45%, #E1D5C4 100%);
     background-attachment:fixed;
   }
   .display{font-family:var(--font-display); font-weight:800;}
@@ -98,6 +98,7 @@
     min-height:270px;
     padding:calc(16px + var(--safe-top)) 18px 24px;
     display:flex; flex-direction:column; justify-content:space-between;
+    background-color:var(--ink);
     background-size:cover; background-position:center;
   }
   header.topbar::before{
@@ -169,39 +170,24 @@
   }
   .spot-card.visited{opacity:.62;}
   .spot-top{padding:16px 16px 12px; display:flex; gap:12px;}
-  .spot-info{flex:1; min-width:0; padding-right:56px;}
+  .spot-info{flex:1; min-width:0;}
   .spot-name{font-family:var(--font-display); font-size:18px; font-weight:700; margin:0 0 4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .spot-name .visited-tag{font-size:11.5px; font-family:var(--font-body); font-weight:700; background:var(--stamp-green); color:#fff; padding:3px 8px; border-radius:6px; letter-spacing:.02em;}
   .spot-meta{font-size:13.5px; color:var(--slate); font-weight:500;}
   .spot-memo{font-size:15.5px; color:var(--ink-soft); line-height:1.65; padding:0 16px 12px; white-space:pre-wrap;}
-
-  .stamp-mark{
-    position:absolute; top:14px; right:14px; width:56px; height:56px; border-radius:50%;
-    border:2px dashed var(--stamp-green); color:var(--stamp-green); display:flex; flex-direction:column;
-    align-items:center; justify-content:center; transform:rotate(-8deg); font-size:9.5px; font-weight:700;
-    letter-spacing:.04em; line-height:1.2; background:rgba(147,168,150,0.06); pointer-events:none;
-  }
-  .stamp-mark span{font-size:14.5px; font-family:var(--font-display); font-weight:800;}
 
   .perforation{
     border-top:1.5px dashed var(--line); position:relative; margin:0 16px;
   }
   .perforation::before, .perforation::after{
     content:''; position:absolute; top:-8px; width:16px; height:16px; border-radius:50%;
-    background:linear-gradient(160deg, #C7C2DC 0%, #8C7B82 55%, #FDF8F0 100%);
+    background:linear-gradient(160deg, #FDF8F0 0%, #EFE4D4 45%, #E1D5C4 100%);
     background-attachment:fixed;
   }
   .perforation::before{left:-24px;}
   .perforation::after{right:-24px;}
 
   .spot-actions{display:flex; align-items:center; gap:7px; padding:12px 16px; flex-wrap:wrap;}
-  .vote-btn{
-    display:flex; align-items:center; gap:5px; border:1.5px solid var(--line); background:var(--paper-2);
-    border-radius:20px; padding:9px 13px; font-size:14.5px; font-weight:600; color:var(--ink-soft); cursor:pointer;
-    min-height:40px;
-  }
-  .vote-btn.mine-up{background:var(--stamp-green); color:#fff; border-color:var(--stamp-green);}
-  .vote-btn.mine-down{background:var(--stamp-red); color:#fff; border-color:var(--stamp-red);}
   .icon-action{
     border:1.5px solid var(--line); background:var(--paper-2); border-radius:20px; padding:9px 13px; font-size:14.5px;
     font-weight:600; color:var(--ink-soft); cursor:pointer; display:flex; align-items:center; gap:5px; min-height:40px;
@@ -259,7 +245,7 @@
     border:1.5px solid var(--line); border-radius:12px; background:var(--paper-2); cursor:pointer; font-size:14px;
     font-weight:600; color:var(--ink-soft); min-height:50px;
   }
-  .cat-opt.active{border-color:var(--amber); background:rgba(140,123,130,0.2); color:var(--ink);}
+  .cat-opt.active{border-color:var(--lilac); background:rgba(199,194,220,0.3); color:var(--ink);}
   .close-x{position:absolute; top:14px; right:16px; font-size:22px; background:none; border:none; color:var(--slate); cursor:pointer; width:40px; height:40px;}
 
   .toast{
@@ -308,7 +294,7 @@
 
   /* ---------- Route builder ---------- */
   .route-row{display:flex; align-items:center; gap:12px; padding:12px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:8px; background:var(--paper-2); cursor:pointer;}
-  .route-row.selected{border-color:var(--amber); background:rgba(140,123,130,0.14);}
+  .route-row.selected{border-color:var(--lilac); background:rgba(199,194,220,0.25);}
   .route-num{width:26px; height:26px; border-radius:50%; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; color:var(--ink-soft); flex:0 0 auto;}
   .route-row.selected .route-num{background:var(--amber); border-color:var(--amber); color:#fff;}
   .route-row-info{flex:1; min-width:0;}
@@ -1243,15 +1229,10 @@ function renderSpots(){
 }
 
 function spotCardHtml(s){
-  const votes = s.votes || {};
-  let up=0, down=0;
-  Object.values(votes).forEach(v=> v==='up' ? up++ : v==='down' ? down++ : null);
-  const myVote = votes[USER.uid];
   const commentCount = s.commentCount || 0;
 
   return `
   <div class="spot-card ${s.visited?'visited':''}">
-    <div class="stamp-mark">VOTES<span>${up}·${down}</span></div>
     <div class="spot-top">
       <div class="spot-info">
         <div class="spot-name">${esc(s.name)} ${s.visited?'<span class="visited-tag">다녀옴</span>':''}</div>
@@ -1261,8 +1242,6 @@ function spotCardHtml(s){
     ${s.memo ? `<div class="spot-memo">${esc(s.memo)}</div>` : ''}
     <div class="perforation"></div>
     <div class="spot-actions">
-      <button class="vote-btn ${myVote==='up'?'mine-up':''}" onclick="vote('${s.id}','up')">찬성 ${up}</button>
-      <button class="vote-btn ${myVote==='down'?'mine-down':''}" onclick="vote('${s.id}','down')">반대 ${down}</button>
       <button class="icon-action" onclick="toggleComments('${s.id}')">댓글 ${commentCount}</button>
       <div class="spacer"></div>
       <button class="icon-action" onclick="openEditSpot('${s.id}')" title="수정">수정</button>
@@ -1272,18 +1251,7 @@ function spotCardHtml(s){
   </div>`;
 }
 
-/* ---------------- Voting / visited ---------------- */
-async function vote(spotId, type){
-  const spot = SPOTS.find(s=>s.id===spotId);
-  const votes = {...(spot.votes||{})};
-  if(votes[USER.uid] === type){
-    delete votes[USER.uid]; // toggle off
-  } else {
-    votes[USER.uid] = type;
-  }
-  try{ await DB.updateSpot(CURRENT_TRIP.code, spotId, {votes}); }catch(e){ console.error(e); toast('투표에 실패했어요'); }
-}
-
+/* ---------------- Visited ---------------- */
 async function toggleVisited(spotId, current){
   try{ await DB.updateSpot(CURRENT_TRIP.code, spotId, {visited: !current}); }catch(e){ console.error(e); toast('변경에 실패했어요'); }
 }
