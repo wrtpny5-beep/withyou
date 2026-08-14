@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
-<title>동행수첩</title>
+<title>with you</title>
 <meta name="theme-color" content="#3A3B3D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -367,7 +367,7 @@
   <!-- ============ ONBOARDING: 닉네임 ============ -->
   <div class="onboard" id="screen-nickname" style="display:none;">
     <div class="mark">TRAVEL COMPANION NOTEBOOK</div>
-    <h1 class="display">동행수첩</h1>
+    <h1 class="display">with you</h1>
     <p class="sub">여행 가이드북 겸 투표함. 먼저, 일행들이 알아볼 수 있는 이름을 알려주세요.</p>
     <div class="card-block">
       <label class="field-label">내 이름 / 닉네임</label>
@@ -1787,7 +1787,7 @@ function shareTrip(){
   }
   const url = shareLink();
   if(navigator.share){
-    navigator.share({ title: `${CURRENT_TRIP.name} - 동행수첩`, text: `${CURRENT_TRIP.name} 여행에 초대할게요!`, url });
+    navigator.share({ title: `${CURRENT_TRIP.name} - with you`, text: `${CURRENT_TRIP.name} 여행에 초대할게요!`, url });
   } else {
     navigator.clipboard.writeText(url);
     toast('초대 링크를 복사했어요');
