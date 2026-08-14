@@ -304,6 +304,14 @@
     padding:7px 11px; cursor:pointer; margin-right:8px;
   }
   .btn-danger{background:transparent; color:var(--stamp-red); border:1.5px solid var(--stamp-red);}
+  .member-row{
+    display:flex; align-items:center; gap:10px; padding:13px 14px; border:1.5px solid var(--line);
+    border-radius:12px; margin-bottom:8px; background:var(--paper-2);
+  }
+  .member-row-info{flex:1; min-width:0;}
+  .member-row-name{font-size:15px; font-weight:700; color:var(--ink); display:flex; align-items:center; gap:6px;}
+  .member-row-code{font-size:12px; color:var(--slate); margin-top:2px;}
+  .member-you-tag{font-size:10.5px; font-weight:700; color:#fff; background:var(--ink); padding:2px 7px; border-radius:6px;}
 
   /* ---------- Survey ---------- */
   .survey-tally-row{display:flex; align-items:center; gap:10px; margin-bottom:11px;}
@@ -378,7 +386,7 @@
     <p class="sub">여행 가이드북 겸 투표함. 먼저, 일행들이 알아볼 수 있는 이름을 알려주세요.</p>
     <div class="card-block">
       <label class="field-label">내 이름 / 닉네임</label>
-      <input type="text" id="input-nickname" placeholder="예: 은호">
+      <input type="text" id="input-nickname" placeholder="이름 입력">
       <button class="btn btn-primary" style="margin-top:14px;" onclick="saveNickname()">시작하기</button>
     </div>
   </div>
@@ -400,15 +408,15 @@
         새 여행 만들기 <span class="accordion-caret" id="create-caret">▾</span>
       </h3>
       <div class="row-gap" id="create-fields" style="display:none;">
-        <input type="text" id="input-newtrip-name" placeholder="여행 이름 (예: 다낭 4박5일)">
-        <input type="text" id="input-newtrip-city" placeholder="도시 (예: 오사카) - 배경사진에 쓰여요, 생략 가능">
+        <input type="text" id="input-newtrip-name" placeholder="여행 이름">
+        <input type="text" id="input-newtrip-city" placeholder="도시 - 배경사진에 쓰여요, 생략 가능">
         <div>
           <label class="field-label">출발일 (선택, 오늘 일정 확인에 쓰여요)</label>
           <input type="date" id="input-newtrip-start">
         </div>
         <div>
           <label class="field-label">함께하는 사람 (선택, 쉼표로 구분 — 나중에도 추가 가능)</label>
-          <input type="text" id="input-newtrip-members" placeholder="예: 민수, 지영, 하늘">
+          <input type="text" id="input-newtrip-members" placeholder="쉼표로 구분해서 입력">
         </div>
         <button class="btn btn-amber" onclick="createTrip()">여행 만들고 시작하기</button>
       </div>
@@ -482,7 +490,7 @@
       <div class="sheet-handle"></div>
       <h2 id="add-spot-heading">스팟 추가하기</h2>
       <label class="field-label">이름</label>
-      <input type="text" id="new-spot-name" placeholder="예: 호이안 야시장" style="margin-bottom:14px;">
+      <input type="text" id="new-spot-name" placeholder="장소 이름" style="margin-bottom:14px;">
 
       <label class="field-label">카테고리</label>
       <div class="cat-grid" id="cat-grid">
@@ -501,11 +509,11 @@
       </div>
 
       <label class="field-label">장소명 / 주소 (지도 검색어로 사용돼요)</label>
-      <input type="text" id="new-spot-address" placeholder="예: 오사카 아메무라 (도시명을 꼭 같이 적어주세요)" style="margin-bottom:6px;">
+      <input type="text" id="new-spot-address" placeholder="도시명을 꼭 같이 적어주세요" style="margin-bottom:6px;">
       <p style="font-size:12px; color:var(--slate); line-height:1.5; margin:0 0 14px;">동명의 장소가 있을 수 있어요. "아메무라"보다 "오사카 아메무라"처럼 도시명을 같이 적으면 길찾기가 더 정확해져요.</p>
 
       <label class="field-label">며칠째 일정인가요? (선택, 일정 보기에 쓰여요)</label>
-      <input type="text" inputmode="numeric" id="new-spot-day" placeholder="예: 1 (비워두면 미배정)" style="margin-bottom:14px;">
+      <input type="text" inputmode="numeric" id="new-spot-day" placeholder="숫자만 입력 (비워두면 미배정)" style="margin-bottom:14px;">
 
       <label class="field-label">메모 (선택)</label>
       <textarea id="new-spot-memo" rows="3" placeholder="가고 싶은 이유, 참고 정보 등"></textarea>
@@ -534,10 +542,10 @@
       </div>
 
       <label class="field-label">못 먹는 음식이나 알레르기가 있나요?</label>
-      <textarea id="survey-noeat" rows="2" placeholder="예: 해산물은 못 먹어요, 오이 알레르기 있음 (없으면 비워두세요)" style="margin-bottom:14px;"></textarea>
+      <textarea id="survey-noeat" rows="2" placeholder="없으면 비워두세요" style="margin-bottom:14px;"></textarea>
 
       <label class="field-label">꼭 가고 싶은 곳이 있나요?</label>
-      <textarea id="survey-mustvisit" rows="3" placeholder="예: 도톤보리, 유니버설 스튜디오 재팬"></textarea>
+      <textarea id="survey-mustvisit" rows="3"></textarea>
 
       <button class="btn btn-primary" style="margin-top:18px;" onclick="submitSurvey()">의견 남기기</button>
     </div>
@@ -597,7 +605,7 @@
       <button class="btn btn-amber" id="checklist-ai-btn" onclick="generateChecklist()">추천 항목 받기</button>
       <div id="checklist-body" style="margin-top:16px;"></div>
       <div class="row-gap" style="margin-top:14px;">
-        <input type="text" id="checklist-new-item" placeholder="직접 추가하기 (예: 우산)">
+        <input type="text" id="checklist-new-item" placeholder="직접 추가하기">
         <button class="btn btn-outline" style="margin-top:8px;" onclick="addChecklistItem()">추가</button>
       </div>
     </div>
@@ -609,13 +617,24 @@
       <button class="close-x" onclick="closeSheet('sheet-who')">✕</button>
       <div class="sheet-handle"></div>
       <h2>당신은 누구인가요?</h2>
-      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">다른 기기에서 이미 답해두신 설문 등을 그대로 이어가려면, 본인 이름을 선택하거나 코드로 로그인해주세요.</p>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">아래 목록에 <b>본인 이름이 이미 있다면 꼭 그걸 선택</b>해주세요 (다른 기기에서 답한 설문 등이 이어져요). "새로 추가"는 목록에 없는 진짜 새 사람일 때만 눌러주세요.</p>
       <div id="who-body"></div>
       <div class="row-gap" style="margin-top:14px;">
-        <input type="text" id="who-code-input" placeholder="또는 내 코드로 로그인 (예: AB12C)">
+        <input type="text" id="who-code-input" placeholder="또는 내 코드로 로그인">
         <button class="btn btn-outline" style="margin-top:8px;" onclick="loginByCode()">코드로 로그인</button>
       </div>
       <button class="btn btn-ghost" style="margin-top:14px; width:100%; text-align:center;" onclick="addSelfAsMember()">목록에 없어요 (새로 추가하기)</button>
+    </div>
+  </div>
+
+  <!-- ============ MEMBER MANAGE SHEET ============ -->
+  <div class="sheet-backdrop" id="sheet-member-manage">
+    <div class="sheet">
+      <button class="close-x" onclick="closeSheet('sheet-member-manage')">✕</button>
+      <div class="sheet-handle"></div>
+      <h2>멤버 관리</h2>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">같은 사람이 실수로 중복 등록됐다면 지워주세요. 본인이 로그인 중인 멤버는 지울 수 없어요.</p>
+      <div id="member-manage-body"></div>
     </div>
   </div>
 
@@ -649,6 +668,7 @@
       </div>
       <button class="btn btn-outline" onclick="editNickname()">닉네임 바꾸기</button>
       <button class="btn btn-outline" id="btn-switch-member" style="display:none;" onclick="switchMemberIdentity()">다른 사람으로 로그인</button>
+      <button class="btn btn-outline" id="btn-manage-members" style="display:none;" onclick="closeSheet('sheet-settings'); openMemberManage();">멤버 관리 (중복/삭제)</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openItinerary();">전체 일정 보기</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openChecklist();">준비물 체크리스트</button>
       <button class="btn btn-outline" onclick="changeTripCity()">배경사진 바꾸기</button>
@@ -1945,8 +1965,10 @@ function updateNicknameDisplays(){
   const myCodeRow = document.getElementById('set-mycode-row');
   const myCodeEl = document.getElementById('set-mycode');
   const switchBtn = document.getElementById('btn-switch-member');
+  const manageBtn = document.getElementById('btn-manage-members');
   const hasMembers = (CURRENT_TRIP.members||[]).length > 0;
   if(switchBtn) switchBtn.style.display = hasMembers ? 'block' : 'none';
+  if(manageBtn) manageBtn.style.display = hasMembers ? 'block' : 'none';
   if(myCodeRow && myCodeEl){
     const mine = (CURRENT_TRIP.members||[]).find(m=>m.id===USER.uid);
     if(mine){
@@ -1967,6 +1989,43 @@ function switchMemberIdentity(){
   closeSheet('sheet-settings');
   renderMemberPicker(CURRENT_TRIP.members);
   document.getElementById('sheet-who').classList.add('open');
+}
+
+function openMemberManage(){
+  renderMemberManage();
+  document.getElementById('sheet-member-manage').classList.add('open');
+}
+function renderMemberManage(){
+  const body = document.getElementById('member-manage-body');
+  const members = CURRENT_TRIP.members || [];
+  if(members.length === 0){
+    body.innerHTML = `<p style="color:var(--slate); font-size:14px; text-align:center; padding:20px 0;">등록된 멤버가 없어요.</p>`;
+    return;
+  }
+  body.innerHTML = members.map(m => `
+    <div class="member-row">
+      <div class="member-row-info">
+        <div class="member-row-name">${esc(m.name)} ${m.id===USER.uid ? '<span class="member-you-tag">나</span>' : ''}</div>
+        <div class="member-row-code">코드 ${m.code}</div>
+      </div>
+      ${m.id===USER.uid ? '' : `<button class="tp-delete" onclick="deleteMember('${m.id}')">삭제</button>`}
+    </div>
+  `).join('');
+}
+async function deleteMember(memberId){
+  const m = (CURRENT_TRIP.members||[]).find(x=>x.id===memberId);
+  if(!m) return;
+  if(!confirm(`"${m.name}" 멤버를 삭제할까요?\n그 사람이 남긴 사전 설문은 그대로 남아있지만, 그 사람은 다시 로그인해야 해요.`)) return;
+  const updated = (CURRENT_TRIP.members||[]).filter(x=>x.id!==memberId);
+  try{
+    await DB.tripUpdate(CURRENT_TRIP.code, { members: updated });
+    CURRENT_TRIP.members = updated;
+    renderMemberManage();
+    toast('멤버를 삭제했어요');
+  }catch(e){
+    console.error(e);
+    toast('삭제에 실패했어요');
+  }
 }
 
 /* ---------------- Survey (사전 설문) ---------------- */
