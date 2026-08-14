@@ -71,6 +71,13 @@
     border:1px solid var(--glass-border); border-radius:16px; padding:20px; box-shadow:var(--shadow); margin-bottom:14px;
   }
   .card-block h3{margin:0 0 12px; font-size:17px; font-family:var(--font-display); font-weight:700;}
+  .accordion-head{
+    margin:0 !important; display:flex; align-items:center; justify-content:space-between;
+    cursor:pointer; user-select:none;
+  }
+  .accordion-head.open{margin-bottom:12px !important;}
+  .accordion-caret{font-size:13px; color:var(--slate); transition:transform .15s; font-family:var(--font-body); font-weight:400;}
+  .accordion-head.open .accordion-caret{transform:rotate(180deg);}
   input[type=text], input[type=email], input[type=date], textarea{
     width:100%; border:1.5px solid var(--line); background:var(--paper-2); border-radius:10px;
     padding:14px; font-family:var(--font-body); font-size:16px; color:var(--ink); line-height:1.5;
@@ -390,8 +397,10 @@
     <div id="trip-pick-list"></div>
     <div class="stamp-divider">또는</div>
     <div class="card-block">
-      <h3>새 여행 만들기</h3>
-      <div class="row-gap">
+      <h3 class="accordion-head" onclick="toggleTripSection('create')">
+        새 여행 만들기 <span class="accordion-caret" id="create-caret">▾</span>
+      </h3>
+      <div class="row-gap" id="create-fields" style="display:none;">
         <input type="text" id="input-newtrip-name" placeholder="여행 이름 (예: 다낭 4박5일)">
         <input type="text" id="input-newtrip-city" placeholder="도시 (예: 오사카) - 배경사진에 쓰여요, 생략 가능">
         <div>
@@ -406,8 +415,10 @@
       </div>
     </div>
     <div class="card-block" id="join-code-card">
-      <h3>초대 코드로 참여하기</h3>
-      <div class="row-gap">
+      <h3 class="accordion-head" onclick="toggleTripSection('join')">
+        초대 코드로 참여하기 <span class="accordion-caret" id="join-caret">▾</span>
+      </h3>
+      <div class="row-gap" id="join-fields" style="display:none;">
         <input type="text" id="input-join-code" placeholder="6자리 코드 입력" style="text-transform:uppercase;">
         <button class="btn btn-outline" onclick="joinTripByCode()">참여하기</button>
       </div>
@@ -970,12 +981,31 @@ function editNickname(){
 }
 
 /* ---------------- Trip picker ---------------- */
+function toggleTripSection(which){
+  const fields = document.getElementById(which+'-fields');
+  const head = document.getElementById(which+'-caret').closest('.accordion-head');
+  const isOpen = fields.style.display !== 'none';
+  // 다른 섹션은 접어두기 (하나만 열려있게)
+  ['create','join'].forEach(w=>{
+    if(w===which) return;
+    const f = document.getElementById(w+'-fields');
+    const h = document.getElementById(w+'-caret').closest('.accordion-head');
+    if(f){ f.style.display = 'none'; h.classList.remove('open'); }
+  });
+  fields.style.display = isOpen ? 'none' : 'block';
+  head.classList.toggle('open', !isOpen);
+}
+
 function showTripPicker(){
   document.getElementById('screen-main').style.display = 'none';
   document.getElementById('screen-trips').style.display = 'flex';
   document.getElementById('greet-text').textContent = `${USER.nickname}님, 반가워요.`;
   document.getElementById('mode-banner').style.display = USE_FIREBASE ? 'none' : 'block';
   document.getElementById('join-code-card').style.display = USE_FIREBASE ? 'block' : 'none';
+  document.getElementById('create-fields').style.display = 'none';
+  document.getElementById('join-fields').style.display = 'none';
+  document.getElementById('create-caret').closest('.accordion-head').classList.remove('open');
+  document.getElementById('join-caret').closest('.accordion-head').classList.remove('open');
   const myTrips = JSON.parse(localStorage.getItem('dh_trips') || '[]');
   const listEl = document.getElementById('trip-pick-list');
   if(myTrips.length === 0){
