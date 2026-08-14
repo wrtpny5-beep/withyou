@@ -398,6 +398,10 @@
           <label class="field-label">출발일 (선택, 오늘 일정 확인에 쓰여요)</label>
           <input type="date" id="input-newtrip-start">
         </div>
+        <div>
+          <label class="field-label">함께하는 사람 (선택, 쉼표로 구분 — 나중에도 추가 가능)</label>
+          <input type="text" id="input-newtrip-members" placeholder="예: 민수, 지영, 하늘">
+        </div>
         <button class="btn btn-amber" onclick="createTrip()">여행 만들고 시작하기</button>
       </div>
     </div>
@@ -587,6 +591,22 @@
     </div>
   </div>
 
+  <!-- ============ WHO ARE YOU (멤버 식별) SHEET ============ -->
+  <div class="sheet-backdrop" id="sheet-who">
+    <div class="sheet">
+      <button class="close-x" onclick="closeSheet('sheet-who')">✕</button>
+      <div class="sheet-handle"></div>
+      <h2>당신은 누구인가요?</h2>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">다른 기기에서 이미 답해두신 설문 등을 그대로 이어가려면, 본인 이름을 선택하거나 코드로 로그인해주세요.</p>
+      <div id="who-body"></div>
+      <div class="row-gap" style="margin-top:14px;">
+        <input type="text" id="who-code-input" placeholder="또는 내 코드로 로그인 (예: AB12C)">
+        <button class="btn btn-outline" style="margin-top:8px;" onclick="loginByCode()">코드로 로그인</button>
+      </div>
+      <button class="btn btn-ghost" style="margin-top:14px; width:100%; text-align:center;" onclick="addSelfAsMember()">목록에 없어요 (새로 추가하기)</button>
+    </div>
+  </div>
+
   <!-- ============ SETTINGS SHEET ============ -->
   <div class="sheet-backdrop" id="sheet-settings">
     <div class="sheet">
@@ -606,12 +626,17 @@
           <span class="s-label">내 닉네임</span>
           <span class="s-value" id="set-nickname">-</span>
         </div>
+        <div class="s-item" id="set-mycode-row" style="display:none;">
+          <span class="s-label">내 코드</span>
+          <span class="code-pill" id="set-mycode">-----</span>
+        </div>
         <div class="s-item">
           <span class="s-label">데이터 저장</span>
           <span class="s-value" id="set-sync-status">이 기기에만 저장됨</span>
         </div>
       </div>
       <button class="btn btn-outline" onclick="editNickname()">닉네임 바꾸기</button>
+      <button class="btn btn-outline" id="btn-switch-member" style="display:none;" onclick="switchMemberIdentity()">다른 사람으로 로그인</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openItinerary();">전체 일정 보기</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openChecklist();">준비물 체크리스트</button>
       <button class="btn btn-outline" onclick="changeTripCity()">배경사진 바꾸기</button>
@@ -873,6 +898,13 @@ function uid(len=8){
 function tripCode(){
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   return Array.from({length:6}, ()=> chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+function memberCode(){
+  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  return Array.from({length:5}, ()=> chars[Math.floor(Math.random()*chars.length)]).join('');
+}
+function buildMember(name){
+  return { id:'m_'+uid(8), name, code: memberCode() };
 }
 function toast(msg){
   const t = document.getElementById('toast');
@@ -1141,10 +1173,15 @@ async function createTrip(){
   const name = document.getElementById('input-newtrip-name').value.trim();
   const city = document.getElementById('input-newtrip-city').value.trim();
   const startDate = document.getElementById('input-newtrip-start').value;
+  const membersRaw = document.getElementById('input-newtrip-members').value.trim();
   if(!name){ toast('여행 이름을 입력해주세요'); return; }
   const code = tripCode();
   try{
-    await DB.tripCreate(code, { name, city, startDate: startDate || null, createdBy: USER.nickname });
+    const extraNames = membersRaw ? membersRaw.split(',').map(s=>s.trim()).filter(Boolean) : [];
+    const creatorMember = buildMember(USER.nickname);
+    const members = [creatorMember, ...extraNames.map(n=>buildMember(n))];
+    await DB.tripCreate(code, { name, city, startDate: startDate || null, createdBy: USER.nickname, members });
+    localStorage.setItem('dh_member_'+code, JSON.stringify({ id: creatorMember.id }));
     rememberTrip(code, name);
     loadTrip(code);
     if(city){
@@ -1205,16 +1242,18 @@ function loadTrip(code){
       CURRENT_TRIP.city = data.city || '';
       CURRENT_TRIP.startDate = data.startDate || null;
       CURRENT_TRIP.checklist = data.checklist || [];
+      CURRENT_TRIP.members = data.members || [];
       document.getElementById('hdr-trip-name').textContent = CURRENT_TRIP.name;
       document.getElementById('hdr-trip-code').textContent = code;
       document.getElementById('set-trip-name').textContent = CURRENT_TRIP.name;
       document.getElementById('set-trip-code').textContent = code;
-      document.getElementById('set-nickname').textContent = USER.nickname;
       const syncEl = document.getElementById('set-sync-status');
       if(syncEl) syncEl.textContent = USE_FIREBASE ? '실시간 동기화 중' : '이 기기에만 저장됨';
       if(data.bgImage) applyHeaderBg(data.bgImage);
       rememberTrip(code, CURRENT_TRIP.name, data.bgImage);
       if(CURRENT_TRIP.city) loadWeather(CURRENT_TRIP.city); else renderWeather(null);
+      if(CURRENT_TRIP.members.length > 0) identifyMember(CURRENT_TRIP.members);
+      else updateNicknameDisplays();
     }
   });
 
@@ -1761,6 +1800,100 @@ function copyTripLink(){
   }
   navigator.clipboard.writeText(shareLink());
   toast('초대 링크를 복사했어요');
+}
+
+/* ---------------- 멤버 식별 (기기 달라도 같은 사람으로 인식) ---------------- */
+let MEMBER_PICKER_CACHE = [];
+
+function identifyMember(members){
+  const saved = JSON.parse(localStorage.getItem('dh_member_'+CURRENT_TRIP.code) || 'null');
+  if(saved){
+    const match = members.find(m=>m.id===saved.id);
+    if(match){
+      USER = { uid: match.id, nickname: match.name };
+      updateNicknameDisplays();
+      return;
+    }
+  }
+  renderMemberPicker(members);
+  document.getElementById('sheet-who').classList.add('open');
+}
+
+function renderMemberPicker(members){
+  MEMBER_PICKER_CACHE = members;
+  const body = document.getElementById('who-body');
+  body.innerHTML = members.map(m => `
+    <div class="route-row" onclick="pickMember('${m.id}')">
+      <div class="route-row-info"><div class="route-row-name">${esc(m.name)}</div></div>
+    </div>
+  `).join('');
+}
+
+function pickMember(memberId){
+  const m = MEMBER_PICKER_CACHE.find(x=>x.id===memberId);
+  if(!m) return;
+  if(!confirm(`"${m.name}"(으)로 로그인할까요?\n내 코드: ${m.code}\n(다른 기기에서 로그인할 때 필요하니 기억해두세요)`)) return;
+  finalizeMemberLogin(m);
+}
+
+async function loginByCode(){
+  const input = document.getElementById('who-code-input');
+  const code = input.value.trim().toUpperCase();
+  if(!code){ toast('코드를 입력해주세요'); return; }
+  const m = MEMBER_PICKER_CACHE.find(x=>x.code===code);
+  if(!m){ toast('코드가 맞지 않아요'); return; }
+  finalizeMemberLogin(m);
+}
+
+async function addSelfAsMember(){
+  const name = prompt('이름을 입력하세요', USER.nickname || '');
+  if(!name || !name.trim()) return;
+  const newMember = buildMember(name.trim());
+  const updated = [...MEMBER_PICKER_CACHE, newMember];
+  try{
+    await DB.tripUpdate(CURRENT_TRIP.code, { members: updated });
+    MEMBER_PICKER_CACHE = updated;
+    CURRENT_TRIP.members = updated;
+  }catch(e){ console.error(e); }
+  finalizeMemberLogin(newMember);
+}
+
+function finalizeMemberLogin(m){
+  USER = { uid: m.id, nickname: m.name };
+  localStorage.setItem('dh_member_'+CURRENT_TRIP.code, JSON.stringify({ id: m.id }));
+  closeSheet('sheet-who');
+  updateNicknameDisplays();
+  toast(`${m.name}(으)로 로그인했어요`);
+}
+
+function updateNicknameDisplays(){
+  const nickEl = document.getElementById('set-nickname');
+  if(nickEl) nickEl.textContent = USER.nickname;
+  const myCodeRow = document.getElementById('set-mycode-row');
+  const myCodeEl = document.getElementById('set-mycode');
+  const switchBtn = document.getElementById('btn-switch-member');
+  const hasMembers = (CURRENT_TRIP.members||[]).length > 0;
+  if(switchBtn) switchBtn.style.display = hasMembers ? 'block' : 'none';
+  if(myCodeRow && myCodeEl){
+    const mine = (CURRENT_TRIP.members||[]).find(m=>m.id===USER.uid);
+    if(mine){
+      myCodeEl.textContent = mine.code;
+      myCodeRow.style.display = 'flex';
+    } else {
+      myCodeRow.style.display = 'none';
+    }
+  }
+  if(CURRENT_TRIP && CURRENT_TRIP.code){
+    MY_SURVEY = SURVEYS.find(s=>s.uid===USER.uid) || null;
+    updateSurveyBanner();
+  }
+}
+
+function switchMemberIdentity(){
+  if(!CURRENT_TRIP.members || CURRENT_TRIP.members.length === 0) return;
+  closeSheet('sheet-settings');
+  renderMemberPicker(CURRENT_TRIP.members);
+  document.getElementById('sheet-who').classList.add('open');
 }
 
 /* ---------------- Survey (사전 설문) ---------------- */
