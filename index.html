@@ -419,8 +419,9 @@
         초대 코드로 참여하기 <span class="accordion-caret" id="join-caret">▾</span>
       </h3>
       <div class="row-gap" id="join-fields" style="display:none;">
-        <input type="text" id="input-join-code" placeholder="6자리 코드 입력" style="text-transform:uppercase;">
-        <button class="btn btn-outline" onclick="joinTripByCode()">참여하기</button>
+        <input type="text" id="input-join-code" placeholder="6자리 여행 코드 입력" style="text-transform:uppercase;">
+        <p style="font-size:12px; color:var(--slate); line-height:1.5; margin:6px 0 0;">일행이 공유한 6자리 <b>여행</b> 코드예요. 개인 로그인 코드(5자리, "내 코드")와는 달라요.</p>
+        <button class="btn btn-outline" style="margin-top:8px;" onclick="joinTripByCode()">참여하기</button>
       </div>
     </div>
   </div>
@@ -1131,7 +1132,29 @@ const WEATHER_CODE_LABEL = {
   85:'약한 눈소나기', 86:'강한 눈소나기',
   95:'뇌우', 96:'우박 동반 뇌우', 99:'강한 우박 동반 뇌우'
 };
+async function geocodeViaWikipedia(city){
+  const tryLang = async (lang)=>{
+    const page = await searchWikiPage(city, lang);
+    if(!page) return null;
+    const title = page.key || page.title;
+    if(!title) return null;
+    try{
+      const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`);
+      if(!res.ok) return null;
+      const data = await res.json();
+      if(data.coordinates && typeof data.coordinates.lat === 'number' && typeof data.coordinates.lon === 'number'){
+        return { lat: data.coordinates.lat, lng: data.coordinates.lon };
+      }
+      return null;
+    }catch(e){ return null; }
+  };
+  return (await tryLang('ko')) || (await tryLang('en'));
+}
 async function geocodeCity(city){
+  // 위키백과 검색이 한글 지명(예: "발리")을 더 정확히 찾아서 우선 시도
+  const viaWiki = await geocodeViaWikipedia(city);
+  if(viaWiki) return viaWiki;
+
   const tryUrl = async (url)=>{
     try{
       const res = await fetch(url);
