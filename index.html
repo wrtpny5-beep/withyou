@@ -96,13 +96,25 @@
     padding:calc(16px + var(--safe-top)) 18px 16px;
     display:flex; align-items:center; justify-content:space-between;
     border-bottom:3px dashed var(--amber);
+    background-size:cover; background-position:center;
   }
+  header.topbar.has-bg{
+    padding-top:calc(72px + var(--safe-top));
+  }
+  header.topbar.has-bg::before{
+    content:''; position:absolute; inset:0;
+    background:linear-gradient(180deg, rgba(11,20,40,.18) 0%, rgba(11,20,40,.82) 100%);
+    z-index:0;
+  }
+  header.topbar{ position:sticky; }
+  header.topbar > *{ position:relative; z-index:1; }
   header.topbar .trip-name{font-family:var(--font-display); font-weight:800; font-size:20px; display:flex; align-items:center; gap:8px;}
   header.topbar .trip-code{font-size:12px; letter-spacing:.1em; color:var(--amber); opacity:.95; margin-top:4px; font-weight:500;}
   header.topbar .icon-btn{
     height:36px; padding:0 11px; border-radius:9px; border:1px solid rgba(250,246,238,0.3);
     background:rgba(250,246,238,0.08); color:var(--paper); display:flex; align-items:center; justify-content:center;
     font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;
+    backdrop-filter:blur(2px);
   }
   .header-actions{display:flex; gap:6px;}
 
@@ -243,6 +255,7 @@
   }
   .trip-pick-item .tp-name{font-family:var(--font-display); font-weight:700; font-size:16.5px;}
   .trip-pick-item .tp-code{font-size:12.5px; color:var(--slate); margin-top:3px; font-weight:500;}
+  .tp-thumb{width:46px; height:46px; border-radius:10px; object-fit:cover; flex:0 0 auto; margin-right:12px; background:var(--paper-2);}
 
   /* ---------- Survey ---------- */
   .survey-tally-row{display:flex; align-items:center; gap:10px; margin-bottom:11px;}
@@ -300,6 +313,7 @@
       <h3>새 여행 만들기</h3>
       <div class="row-gap">
         <input type="text" id="input-newtrip-name" placeholder="여행 이름 (예: 다낭 4박5일)">
+        <input type="text" id="input-newtrip-city" placeholder="도시 (예: 오사카) - 배경사진에 쓰여요, 생략 가능">
         <button class="btn btn-amber" onclick="createTrip()">여행 만들고 시작하기</button>
       </div>
     </div>
@@ -314,7 +328,7 @@
 
   <!-- ============ MAIN APP ============ -->
   <div id="screen-main" style="display:none; flex-direction:column; flex:1;">
-    <header class="topbar">
+    <header class="topbar" id="app-header">
       <div onclick="openSettings()" style="cursor:pointer;">
         <div class="trip-name"><span id="hdr-trip-name">여행</span></div>
         <div class="trip-code">CODE <span id="hdr-trip-code">------</span> · 탭하여 설정</div>
@@ -553,6 +567,12 @@ const LocalAdapter = {
     trips[code] = { ...data, createdAt: Date.now() };
     lsSet(LS_KEYS.trips, trips);
   },
+  async tripUpdate(code, patch){
+    const trips = lsGet(LS_KEYS.trips);
+    if(!trips[code]) return;
+    Object.assign(trips[code], patch);
+    lsSet(LS_KEYS.trips, trips);
+  },
   subscribeSpots(tripCode, cb){
     const run = ()=>{
       const all = lsGet(LS_KEYS.spots)[tripCode] || {};
@@ -640,6 +660,9 @@ const FirebaseAdapter = {
   },
   async tripCreate(code, data){
     await db.collection('trips').doc(code).set({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+  },
+  async tripUpdate(code, patch){
+    await db.collection('trips').doc(code).update(patch);
   },
   subscribeSpots(tripCode, cb){
     return db.collection('trips').doc(tripCode).collection('spots')
@@ -779,7 +802,8 @@ function showTripPicker(){
   } else {
     listEl.innerHTML = myTrips.map(t => `
       <div class="trip-pick-item" onclick="loadTrip('${t.code}')">
-        <div>
+        ${t.bgImage ? `<img class="tp-thumb" src="${t.bgImage}" alt="" loading="lazy">` : ''}
+        <div style="flex:1; min-width:0;">
           <div class="tp-name">${esc(t.name)}</div>
           <div class="tp-code">CODE ${t.code}</div>
         </div>
@@ -796,14 +820,50 @@ function switchTripScreen(){
   showTripPicker();
 }
 
+/* ---------------- 도시 배경사진 (위키백과 대표 이미지, 키 불필요) ---------------- */
+async function fetchCityImage(query){
+  if(!query) return null;
+  const tryLang = async (lang)=>{
+    try{
+      const res = await fetch(`https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(query)}`);
+      if(!res.ok) return null;
+      const data = await res.json();
+      if(data.type === 'disambiguation') return null;
+      return (data.originalimage && data.originalimage.source) || (data.thumbnail && data.thumbnail.source) || null;
+    }catch(e){ return null; }
+  };
+  return (await tryLang('ko')) || (await tryLang('en'));
+}
+
+function applyHeaderBg(url){
+  const header = document.getElementById('app-header');
+  if(!header) return;
+  if(url){
+    header.style.backgroundImage = `url("${url}")`;
+    header.classList.add('has-bg');
+  } else {
+    header.style.backgroundImage = '';
+    header.classList.remove('has-bg');
+  }
+}
+
 async function createTrip(){
   const name = document.getElementById('input-newtrip-name').value.trim();
+  const city = document.getElementById('input-newtrip-city').value.trim();
   if(!name){ toast('여행 이름을 입력해주세요'); return; }
   const code = tripCode();
   try{
-    await DB.tripCreate(code, { name, createdBy: USER.nickname });
+    await DB.tripCreate(code, { name, city, createdBy: USER.nickname });
     rememberTrip(code, name);
     loadTrip(code);
+    if(city){
+      fetchCityImage(city).then(async (url)=>{
+        if(!url) return;
+        try{ await DB.tripUpdate(code, { bgImage: url }); }catch(e){ console.error(e); }
+        rememberTrip(code, name, url);
+        if(CURRENT_TRIP && CURRENT_TRIP.code === code) applyHeaderBg(url);
+      });
+    }
   }catch(e){
     console.error(e);
     toast(USE_FIREBASE ? '여행 생성에 실패했어요. Firebase 설정을 확인해주세요.' : '여행 생성에 실패했어요.');
@@ -820,7 +880,7 @@ async function joinTripByCode(codeArg, silent){
       else showTripPicker();
       return;
     }
-    rememberTrip(code, data.name);
+    rememberTrip(code, data.name, data.bgImage);
     loadTrip(code);
   }catch(e){
     console.error(e);
@@ -828,17 +888,22 @@ async function joinTripByCode(codeArg, silent){
   }
 }
 
-function rememberTrip(code, name){
+function rememberTrip(code, name, bgImage){
   let trips = JSON.parse(localStorage.getItem('dh_trips') || '[]');
-  if(!trips.find(t=>t.code===code)){
-    trips.push({code, name});
-    localStorage.setItem('dh_trips', JSON.stringify(trips));
+  const existing = trips.find(t=>t.code===code);
+  if(!existing){
+    trips.push({code, name, bgImage: bgImage || null});
+  } else {
+    existing.name = name;
+    if(bgImage) existing.bgImage = bgImage;
   }
+  localStorage.setItem('dh_trips', JSON.stringify(trips));
 }
 
 function loadTrip(code){
   CURRENT_TRIP = { code };
   ROUTE_SELECTION = [];
+  applyHeaderBg(null);
   localStorage.setItem('dh_last_trip', code);
   document.getElementById('screen-trips').style.display = 'none';
   document.getElementById('screen-main').style.display = 'flex';
@@ -853,7 +918,8 @@ function loadTrip(code){
       document.getElementById('set-nickname').textContent = USER.nickname;
       const syncEl = document.getElementById('set-sync-status');
       if(syncEl) syncEl.textContent = USE_FIREBASE ? '실시간 동기화 중' : '이 기기에만 저장됨';
-      rememberTrip(code, CURRENT_TRIP.name);
+      if(data.bgImage) applyHeaderBg(data.bgImage);
+      rememberTrip(code, CURRENT_TRIP.name, data.bgImage);
     }
   });
 
