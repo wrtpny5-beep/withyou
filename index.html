@@ -395,7 +395,6 @@
       </div>
     </div>
     <div id="trip-pick-list"></div>
-    <div class="stamp-divider">또는</div>
     <div class="card-block">
       <h3 class="accordion-head" onclick="toggleTripSection('create')">
         새 여행 만들기 <span class="accordion-caret" id="create-caret">▾</span>
@@ -414,6 +413,7 @@
         <button class="btn btn-amber" onclick="createTrip()">여행 만들고 시작하기</button>
       </div>
     </div>
+    <div class="stamp-divider" id="trip-mode-divider">또는</div>
     <div class="card-block" id="join-code-card">
       <h3 class="accordion-head" onclick="toggleTripSection('join')">
         초대 코드로 참여하기 <span class="accordion-caret" id="join-caret">▾</span>
@@ -1002,6 +1002,7 @@ function showTripPicker(){
   document.getElementById('greet-text').textContent = `${USER.nickname}님, 반가워요.`;
   document.getElementById('mode-banner').style.display = USE_FIREBASE ? 'none' : 'block';
   document.getElementById('join-code-card').style.display = USE_FIREBASE ? 'block' : 'none';
+  document.getElementById('trip-mode-divider').style.display = USE_FIREBASE ? 'flex' : 'none';
   document.getElementById('create-fields').style.display = 'none';
   document.getElementById('join-fields').style.display = 'none';
   document.getElementById('create-caret').closest('.accordion-head').classList.remove('open');
