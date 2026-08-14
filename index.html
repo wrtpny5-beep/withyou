@@ -143,17 +143,36 @@
   }
   .tag-meta{font-size:12px; letter-spacing:.08em; color:rgba(255,255,255,0.85); font-weight:600;}
 
-  /* ---------- Filter chips ---------- */
-  .chipbar{
-    display:flex; gap:8px; overflow-x:auto; padding:14px 16px 12px; scrollbar-width:none;
+  /* ---------- Filter dropdown (glassmorphism) ---------- */
+  .filter-bar{
+    display:flex; align-items:center; gap:8px; padding:14px 16px 12px;
   }
-  .chipbar::-webkit-scrollbar{display:none;}
+  .filter-dropdown-wrap{position:relative;}
+  .filter-trigger{
+    display:flex; align-items:center; gap:8px; padding:10px 16px; border-radius:999px; border:1.5px solid var(--line);
+    background:var(--paper-2); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+    font-size:14.5px; font-weight:600; color:var(--ink); cursor:pointer; white-space:nowrap; min-height:40px;
+    font-family:var(--font-body);
+  }
+  .filter-caret{font-size:11px; color:var(--slate); transition:transform .15s;}
+  .filter-dropdown-wrap.open .filter-caret{transform:rotate(180deg);}
+  .filter-dropdown{
+    display:none; position:absolute; top:calc(100% + 8px); left:0; min-width:160px; z-index:40;
+    background:var(--paper); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+    border:1px solid var(--glass-border); border-radius:16px; padding:6px; box-shadow:var(--shadow);
+  }
+  .filter-dropdown.open{display:block;}
+  .filter-opt{
+    padding:11px 14px; border-radius:11px; font-size:14.5px; font-weight:500; color:var(--ink-soft);
+    cursor:pointer; white-space:nowrap;
+  }
+  .filter-opt:hover{background:rgba(255,255,255,0.5);}
+  .filter-opt.active{background:var(--ink); color:#fff; font-weight:700;}
   .chip{
     flex:0 0 auto; padding:10px 16px; border-radius:999px; border:1.5px solid var(--line);
     background:var(--paper-2); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur); font-size:14.5px; font-weight:500; color:var(--ink-soft); cursor:pointer; white-space:nowrap;
     min-height:40px; display:flex; align-items:center;
   }
-  .chip.active{background:var(--ink); color:#fff; border-color:var(--ink);}
 
   /* ---------- Spot list ---------- */
   main{flex:1; padding:4px 16px calc(100px + var(--safe-bottom));}
@@ -410,14 +429,22 @@
       </div>
     </header>
 
-    <div class="chipbar" id="filter-chipbar">
-      <div class="chip active" data-filter="all" onclick="setFilter('all')">전체</div>
-      <div class="chip" data-filter="todo" onclick="setFilter('todo')">가볼 곳</div>
-      <div class="chip" data-filter="관광" onclick="setFilter('관광')">관광</div>
-      <div class="chip" data-filter="맛집" onclick="setFilter('맛집')">맛집</div>
-      <div class="chip" data-filter="카페" onclick="setFilter('카페')">카페</div>
-      <div class="chip" data-filter="숙소" onclick="setFilter('숙소')">숙소</div>
-      <div class="chip" data-filter="액티비티" onclick="setFilter('액티비티')">활동</div>
+    <div class="filter-bar">
+      <div class="filter-dropdown-wrap">
+        <button class="filter-trigger" onclick="toggleFilterDropdown()">
+          <span id="filter-trigger-label">전체</span>
+          <span class="filter-caret">▾</span>
+        </button>
+        <div class="filter-dropdown" id="filter-dropdown">
+          <div class="filter-opt active" data-filter="all" data-label="전체" onclick="setFilter('all')">전체</div>
+          <div class="filter-opt" data-filter="todo" data-label="가볼 곳" onclick="setFilter('todo')">가볼 곳</div>
+          <div class="filter-opt" data-filter="관광" data-label="관광" onclick="setFilter('관광')">관광</div>
+          <div class="filter-opt" data-filter="맛집" data-label="맛집" onclick="setFilter('맛집')">맛집</div>
+          <div class="filter-opt" data-filter="카페" data-label="카페" onclick="setFilter('카페')">카페</div>
+          <div class="filter-opt" data-filter="숙소" data-label="숙소" onclick="setFilter('숙소')">숙소</div>
+          <div class="filter-opt" data-filter="액티비티" data-label="활동" onclick="setFilter('액티비티')">활동</div>
+        </div>
+      </div>
       <div class="chip" id="chip-route" onclick="openRouteBuilder()" style="border-color:var(--amber-deep); color:var(--amber-deep); font-weight:700;">동선 만들기</div>
     </div>
 
@@ -1205,9 +1232,25 @@ function loadTrip(code){
 }
 
 /* ---------------- Filters ---------------- */
+function toggleFilterDropdown(){
+  document.getElementById('filter-dropdown').classList.toggle('open');
+  document.querySelector('.filter-dropdown-wrap').classList.toggle('open');
+}
+document.addEventListener('click', (e)=>{
+  const wrap = document.querySelector('.filter-dropdown-wrap');
+  if(!wrap) return;
+  if(!wrap.contains(e.target)){
+    document.getElementById('filter-dropdown').classList.remove('open');
+    wrap.classList.remove('open');
+  }
+});
 function setFilter(f){
   CURRENT_FILTER = f;
-  document.querySelectorAll('.chip').forEach(c=> c.classList.toggle('active', c.dataset.filter===f));
+  document.querySelectorAll('.filter-opt').forEach(c=> c.classList.toggle('active', c.dataset.filter===f));
+  const active = document.querySelector(`.filter-opt[data-filter="${CSS.escape(f)}"]`);
+  document.getElementById('filter-trigger-label').textContent = active ? active.dataset.label : '전체';
+  document.getElementById('filter-dropdown').classList.remove('open');
+  document.querySelector('.filter-dropdown-wrap').classList.remove('open');
   renderSpots();
 }
 
