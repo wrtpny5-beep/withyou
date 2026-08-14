@@ -40,7 +40,7 @@
     min-height:100vh;
     display:flex;
     justify-content:center;
-    background:linear-gradient(160deg, #FDF8F0 0%, #EFE4D4 45%, #E1D5C4 100%);
+    background:linear-gradient(160deg, #FFFCF6 0%, #E9DCC7 100%);
     background-attachment:fixed;
   }
   .display{font-family:var(--font-display); font-weight:800;}
@@ -181,7 +181,7 @@
   }
   .perforation::before, .perforation::after{
     content:''; position:absolute; top:-8px; width:16px; height:16px; border-radius:50%;
-    background:linear-gradient(160deg, #FDF8F0 0%, #EFE4D4 45%, #E1D5C4 100%);
+    background:linear-gradient(160deg, #FFFCF6 0%, #E9DCC7 100%);
     background-attachment:fixed;
   }
   .perforation::before{left:-24px;}
@@ -413,7 +413,6 @@
     <div class="chipbar" id="filter-chipbar">
       <div class="chip active" data-filter="all" onclick="setFilter('all')">전체</div>
       <div class="chip" data-filter="todo" onclick="setFilter('todo')">가볼 곳</div>
-      <div class="chip" data-filter="visited" onclick="setFilter('visited')">다녀옴</div>
       <div class="chip" data-filter="관광" onclick="setFilter('관광')">관광</div>
       <div class="chip" data-filter="맛집" onclick="setFilter('맛집')">맛집</div>
       <div class="chip" data-filter="카페" onclick="setFilter('카페')">카페</div>
