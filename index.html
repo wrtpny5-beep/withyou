@@ -1254,6 +1254,9 @@ function loadTrip(code){
       if(CURRENT_TRIP.city) loadWeather(CURRENT_TRIP.city); else renderWeather(null);
       if(CURRENT_TRIP.members.length > 0) identifyMember(CURRENT_TRIP.members);
       else updateNicknameDisplays();
+    } else {
+      // 이 기기엔 남아있지만 실제로는 삭제된(또는 존재하지 않는) 여행 → 목록으로 되돌리기
+      handleMissingTrip(code);
     }
   });
 
@@ -1276,6 +1279,22 @@ function loadTrip(code){
       updateSurveyBanner();
     });
   }catch(err){ console.error(err); }
+}
+
+function handleMissingTrip(code){
+  if(UNSUB_SPOTS){ UNSUB_SPOTS(); UNSUB_SPOTS = null; }
+  if(UNSUB_COMMENTS){ UNSUB_COMMENTS(); UNSUB_COMMENTS = null; }
+  if(UNSUB_SURVEY){ UNSUB_SURVEY(); UNSUB_SURVEY = null; }
+
+  let trips = JSON.parse(localStorage.getItem('dh_trips') || '[]');
+  trips = trips.filter(t => t.code !== code);
+  localStorage.setItem('dh_trips', JSON.stringify(trips));
+  if(localStorage.getItem('dh_last_trip') === code) localStorage.removeItem('dh_last_trip');
+  localStorage.removeItem('dh_member_' + code);
+
+  CURRENT_TRIP = null;
+  toast('이 여행은 더 이상 존재하지 않아요 (삭제됨)');
+  showTripPicker();
 }
 
 /* ---------------- Filters ---------------- */
