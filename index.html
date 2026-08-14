@@ -577,7 +577,7 @@
       <button class="close-x" onclick="closeSheet('sheet-checklist')">✕</button>
       <div class="sheet-handle"></div>
       <h2>준비물 체크리스트</h2>
-      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">여행지에 맞춰 챙길 것을 추천해줘요. 일행 모두가 같이 체크하는 공용 목록이에요.</p>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">여행지·날짜·현재 날씨·일행 설문 답변을 참고해서 챙길 것을 추천해줘요. 일행 모두가 같이 체크하는 공용 목록이에요.</p>
       <button class="btn btn-amber" id="checklist-ai-btn" onclick="generateChecklist()">추천 항목 받기</button>
       <div id="checklist-body" style="margin-top:16px;"></div>
       <div class="row-gap" style="margin-top:14px;">
@@ -856,6 +856,7 @@ let UNSUB_SPOTS = null;
 let ACTIVE_COMMENT_SPOT = null;
 let UNSUB_COMMENTS = null;
 let SURVEYS = [];
+let CURRENT_WEATHER = null;
 let MY_SURVEY = null;
 let UNSUB_SURVEY = null;
 let SELECTED_STYLES = new Set();
@@ -1104,6 +1105,7 @@ async function loadWeather(city){
   }catch(e){ console.error(e); }
 }
 function renderWeather(info){
+  CURRENT_WEATHER = info;
   const pill = document.getElementById('weather-pill');
   if(!pill) return;
   if(!info){ pill.style.display = 'none'; pill.textContent = ''; return; }
@@ -1429,10 +1431,37 @@ const CHECKLIST_RULES = [
 function generateRuleBasedChecklist(){
   const text = `${CURRENT_TRIP.name||''} ${CURRENT_TRIP.city||''}`;
   let items = [...CHECKLIST_BASE];
+
+  // 1) 도시/여행 이름 키워드
   CHECKLIST_RULES.forEach(rule=>{
     if(rule.keys.some(k=>text.includes(k))) items.push(...rule.items);
   });
   if(items.length === CHECKLIST_BASE.length) items.push('우산','편한 신발');
+
+  // 2) 출발일 기준 계절
+  if(CURRENT_TRIP.startDate){
+    const month = new Date(CURRENT_TRIP.startDate + 'T00:00:00').getMonth() + 1;
+    if([12,1,2].includes(month)) items.push('방한용품','핫팩','장갑');
+    else if([6,7,8].includes(month)) items.push('자외선차단제','휴대용 선풍기','생수');
+    else if([3,4,5].includes(month)) items.push('가벼운 겉옷');
+    else items.push('가벼운 겉옷','우산');
+  }
+
+  // 3) 현재 날씨 (헤더에 뜬 실시간 날씨 반영)
+  if(CURRENT_WEATHER){
+    if(CURRENT_WEATHER.label && CURRENT_WEATHER.label.includes('비')) items.push('우산','방수 신발');
+    if(CURRENT_WEATHER.label && CURRENT_WEATHER.label.includes('눈')) items.push('방한용품','미끄럼 방지 신발');
+    if(CURRENT_WEATHER.temp >= 28) items.push('자외선차단제','휴대용 선풍기');
+    if(CURRENT_WEATHER.temp <= 8) items.push('방한용품','핫팩');
+  }
+
+  // 4) 일행 사전 설문 (뭘 하고 싶은지)에서 힌트
+  const allStyles = new Set();
+  SURVEYS.forEach(s => (s.styles||[]).forEach(st => allStyles.add(st)));
+  if(allStyles.has('액티비티·체험')) items.push('운동화','여벌 옷');
+  if(allStyles.has('카페·감성사진')) items.push('보조배터리 여유분');
+  if(allStyles.has('쇼핑 위주')) items.push('여분 캐리어/에코백');
+
   return [...new Set(items)];
 }
 async function generateChecklist(){
