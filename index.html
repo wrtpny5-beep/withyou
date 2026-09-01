@@ -124,6 +124,20 @@
     background:rgba(255,255,255,0.18); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
     color:#fff; font-size:12.5px; font-weight:700; cursor:pointer; white-space:nowrap;
   }
+  .weather-pill-wrap{position:relative;}
+  .forecast-dropdown{
+    display:none; position:absolute; top:calc(100% + 8px); left:0; width:220px; z-index:40;
+    background:var(--paper); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
+    border:1px solid var(--glass-border); border-radius:16px; padding:10px; box-shadow:var(--shadow);
+  }
+  .forecast-dropdown.open{display:block;}
+  .forecast-row{display:flex; align-items:center; gap:10px; padding:8px 6px;}
+  .forecast-row:not(:last-child){border-bottom:1px solid var(--line);}
+  .forecast-day{width:56px; flex:0 0 auto; font-size:12.5px; font-weight:700; color:var(--ink);}
+  .forecast-icon{width:22px; height:22px; flex:0 0 auto; color:var(--ink-soft);}
+  .forecast-icon svg{width:100%; height:100%; display:block;}
+  .forecast-label{flex:1; min-width:0; font-size:11.5px; color:var(--slate);}
+  .forecast-temp{flex:0 0 auto; font-size:12.5px; font-weight:600; color:var(--ink); white-space:nowrap;}
 
   .trip-tag-card{
     position:relative; margin-top:40px; cursor:pointer;
@@ -254,7 +268,7 @@
     width:100%; max-width:480px; background:var(--paper); backdrop-filter:var(--blur); -webkit-backdrop-filter:var(--blur);
     border-radius:22px 22px 0 0; border:1px solid var(--glass-border); border-bottom:none;
     padding:20px 20px calc(24px + var(--safe-bottom)); max-height:88vh; overflow-y:auto;
-    animation:slideup .22s ease-out;
+    animation:slideup .22s ease-out; position:relative;
   }
   @keyframes slideup{from{transform:translateY(30px); opacity:0;} to{transform:translateY(0); opacity:1;}}
   .sheet-handle{width:38px; height:4px; background:var(--line); border-radius:3px; margin:0 auto 16px;}
@@ -499,8 +513,11 @@
   <div id="screen-main" style="display:none; flex-direction:column; flex:1;">
     <header class="topbar" id="app-header">
       <div class="hero-actions">
-        <div class="glass-pill" id="weather-pill" style="display:none; cursor:default; margin-right:auto;"></div>
-        <div style="display:flex; gap:8px;">
+        <div class="weather-pill-wrap" id="weather-pill-wrap" style="display:none;">
+          <button class="glass-pill" id="weather-pill" onclick="toggleForecastDropdown()"></button>
+          <div class="forecast-dropdown" id="forecast-dropdown"></div>
+        </div>
+        <div style="display:flex; gap:8px; margin-left:auto;">
           <button class="glass-pill" onclick="openSettings()" title="설정">설정</button>
           <button class="glass-pill" onclick="switchTripScreen()" title="여행 바꾸기">전환</button>
           <button class="glass-pill" onclick="shareTrip()" title="공유">공유</button>
@@ -571,7 +588,9 @@
 
       <label class="field-label">장소명 / 주소 (지도 검색어로 사용돼요)</label>
       <input type="text" id="new-spot-address" placeholder="도시명을 꼭 같이 적어주세요" style="margin-bottom:6px;">
-      <p style="font-size:12px; color:var(--slate); line-height:1.5; margin:0 0 14px;">동명의 장소가 있을 수 있어요. "아메무라"보다 "오사카 아메무라"처럼 도시명을 같이 적으면 길찾기가 더 정확해져요.</p>
+      <p style="font-size:12px; color:var(--slate); line-height:1.5; margin:0 0 10px;">동명의 장소가 있을 수 있어요. "아메무라"보다 "오사카 아메무라"처럼 도시명을 같이 적으면 길찾기가 더 정확해져요.</p>
+      <button type="button" class="btn btn-outline" style="margin-top:0;" onclick="openPinPicker()">지도에서 정확한 위치 찍기 (선택)</button>
+      <div id="pin-status" style="font-size:12px; color:var(--slate); margin:6px 0 14px;"></div>
 
       <label class="field-label">며칠째 일정인가요? (선택, 일정 보기에 쓰여요)</label>
       <input type="text" inputmode="numeric" id="new-spot-day" placeholder="숫자만 입력 (비워두면 미배정)" style="margin-bottom:14px;">
@@ -619,6 +638,27 @@
       <div class="sheet-handle"></div>
       <h2>일행 의견</h2>
       <div id="survey-results-body"></div>
+    </div>
+  </div>
+
+  <!-- ============ PIN PICKER SHEET ============ -->
+  <div class="sheet-backdrop" id="sheet-pinpicker">
+    <div class="sheet daymap-sheet">
+      <button class="close-x" onclick="closePinPicker()">✕</button>
+      <div class="daymap-header">
+        <div class="sheet-handle"></div>
+        <h2 style="margin-bottom:6px;">위치 찍기</h2>
+        <p style="font-size:13px; color:var(--ink-soft); line-height:1.5; margin:0;">지도를 탭하거나 핀을 드래그해서 정확한 위치로 옮겨주세요. 검색으로 안 잡히는 매장/체인점도 이렇게 하면 정확해요.</p>
+      </div>
+      <div id="daymap-container">
+        <div id="pinpicker-leaflet"></div>
+      </div>
+      <div class="daymap-footer">
+        <div class="daymap-btn-row">
+          <button class="btn btn-outline" onclick="clearPinPicker()">위치 지정 취소</button>
+          <button class="btn btn-primary" onclick="confirmPinPicker()">이 위치로 저장</button>
+        </div>
+      </div>
     </div>
   </div>
 
@@ -1292,6 +1332,7 @@ async function geocodeCity(city){
 }
 async function loadWeather(city){
   renderWeather(null);
+  CURRENT_WEATHER_LOC = null;
   if(!city) return;
   try{
     let loc = null;
@@ -1304,6 +1345,7 @@ async function loadWeather(city){
     if(CURRENT_TRIP && CURRENT_TRIP.code){
       DB.tripUpdate(CURRENT_TRIP.code, { weatherLat: loc.lat, weatherLng: loc.lng }).catch(()=>{});
     }
+    CURRENT_WEATHER_LOC = loc;
     const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${loc.lat}&longitude=${loc.lng}&current_weather=true`);
     if(!res.ok) return;
     const data = await res.json();
@@ -1314,13 +1356,88 @@ async function loadWeather(city){
 }
 function renderWeather(info){
   CURRENT_WEATHER = info;
+  const wrap = document.getElementById('weather-pill-wrap');
   const pill = document.getElementById('weather-pill');
-  if(!pill) return;
-  if(!info){ pill.style.display = 'none'; pill.textContent = ''; return; }
+  if(!wrap || !pill) return;
+  if(!info){ wrap.style.display = 'none'; pill.textContent = ''; return; }
   pill.textContent = `${info.temp}°C · ${info.label}`;
-  pill.style.display = 'flex';
-  pill.style.alignItems = 'center';
+  wrap.style.display = 'block';
 }
+
+/* ---------------- 여행 기간 일기예보 (아이콘 드롭다운) ---------------- */
+let CURRENT_WEATHER_LOC = null;
+let FORECAST_CACHE = null;
+
+const WEATHER_ICON_SUN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4.5"/><path d="M12 2v2.5M12 19.5V22M4.2 4.2l1.8 1.8M18 18l1.8 1.8M2 12h2.5M19.5 12H22M4.2 19.8L6 18M18 6l1.8-1.8"/></svg>';
+const WEATHER_ICON_CLOUD = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 18a4.5 4.5 0 0 1-.4-9 5.5 5.5 0 0 1 10.6-1.8A4.5 4.5 0 0 1 17 18H6.5z"/></svg>';
+const WEATHER_ICON_RAIN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 14.5a4.5 4.5 0 0 1-.4-9 5.5 5.5 0 0 1 10.6-1.8A4.5 4.5 0 0 1 17 14.5H6.5z"/><path d="M8 18l-1 3M12.5 18l-1 3M17 18l-1 3" stroke-linecap="round"/></svg>';
+const WEATHER_ICON_SNOW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 13.5a4.5 4.5 0 0 1-.4-9 5.5 5.5 0 0 1 10.6-1.8A4.5 4.5 0 0 1 17 13.5H6.5z"/><path d="M8 18v4M6 19.5l4 1M10 19.5l-4 1M16 18v4M14 19.5l4 1M18 19.5l-4 1" stroke-linecap="round"/></svg>';
+const WEATHER_ICON_STORM = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6.5 12.5a4.5 4.5 0 0 1-.4-9 5.5 5.5 0 0 1 10.6-1.8A4.5 4.5 0 0 1 17 12.5H6.5z"/><path d="M13 15l-3 5h3l-2 4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+
+function weatherIconFor(code){
+  if(code === 0 || code === 1) return WEATHER_ICON_SUN;
+  if([2,3,45,48].includes(code)) return WEATHER_ICON_CLOUD;
+  if([51,53,55,61,63,65,80,81,82].includes(code)) return WEATHER_ICON_RAIN;
+  if([71,73,75,77,85,86].includes(code)) return WEATHER_ICON_SNOW;
+  if([95,96,99].includes(code)) return WEATHER_ICON_STORM;
+  return WEATHER_ICON_CLOUD;
+}
+
+function tripForecastDays(){
+  let maxDay = 0;
+  SPOTS.forEach(s=>{ if(s.day && s.day > maxDay) maxDay = s.day; });
+  return Math.min(14, Math.max(5, maxDay || 5));
+}
+
+async function toggleForecastDropdown(){
+  const dd = document.getElementById('forecast-dropdown');
+  const isOpen = dd.classList.contains('open');
+  if(isOpen){ dd.classList.remove('open'); return; }
+  if(!CURRENT_WEATHER_LOC){ toast('위치를 아직 못 찾았어요'); return; }
+  dd.classList.add('open');
+  if(!FORECAST_CACHE){
+    dd.innerHTML = `<div style="padding:10px; font-size:12.5px; color:var(--slate); text-align:center;">불러오는 중...</div>`;
+    try{
+      const days = tripForecastDays();
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${CURRENT_WEATHER_LOC.lat}&longitude=${CURRENT_WEATHER_LOC.lng}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=${days}`);
+      if(!res.ok) throw new Error('forecast fetch failed');
+      const data = await res.json();
+      FORECAST_CACHE = data.daily;
+    }catch(e){
+      console.error(e);
+      dd.innerHTML = `<div style="padding:10px; font-size:12.5px; color:var(--slate); text-align:center;">예보를 불러오지 못했어요</div>`;
+      return;
+    }
+  }
+  renderForecastDropdown();
+}
+
+function renderForecastDropdown(){
+  const dd = document.getElementById('forecast-dropdown');
+  if(!FORECAST_CACHE){ return; }
+  const { time, weathercode, temperature_2m_max, temperature_2m_min } = FORECAST_CACHE;
+  dd.innerHTML = time.map((dateStr, i)=>{
+    const d = new Date(dateStr + 'T00:00:00');
+    const label = `${d.getMonth()+1}/${d.getDate()}`;
+    const code = weathercode[i];
+    return `
+    <div class="forecast-row">
+      <div class="forecast-day">${label}</div>
+      <div class="forecast-icon">${weatherIconFor(code)}</div>
+      <div class="forecast-label">${esc(WEATHER_CODE_LABEL[code] || '')}</div>
+      <div class="forecast-temp">${Math.round(temperature_2m_max[i])}° / ${Math.round(temperature_2m_min[i])}°</div>
+    </div>`;
+  }).join('');
+}
+
+document.addEventListener('click', (e)=>{
+  const wrap = document.getElementById('weather-pill-wrap');
+  if(!wrap) return;
+  if(!wrap.contains(e.target)){
+    const dd = document.getElementById('forecast-dropdown');
+    if(dd) dd.classList.remove('open');
+  }
+});
 
 async function changeTripCity(){
   const city = prompt('배경사진에 사용할 도시/지역 이름을 입력하세요 (예: 오사카, 발리섬)', '');
@@ -1406,6 +1523,8 @@ function rememberTrip(code, name, bgImage){
 function loadTrip(code){
   CURRENT_TRIP = { code };
   ROUTE_SELECTION = [];
+  FORECAST_CACHE = null;
+  CURRENT_WEATHER_LOC = null;
   applyHeaderBg(null);
   localStorage.setItem('dh_last_trip', code);
   document.getElementById('screen-trips').style.display = 'none';
@@ -2022,7 +2141,10 @@ async function openDayMap(dayNum){
 async function daymapEnsureCoords(spots, loadingEl){
   for(const s of spots){
     if(s.lat == null || s.lng == null){
-      if(loadingEl) loadingEl.textContent = '"' + s.name + '" 위치 찾는 중...';
+      if(loadingEl){
+        const searchTerm = s.address || s.name;
+        loadingEl.textContent = '"' + searchTerm + '" 위치 찾는 중...';
+      }
       const loc = await geocodeCity(s.address || s.name);
       if(loc){
         s.lat = loc.lat; s.lng = loc.lng;
@@ -2245,6 +2367,9 @@ document.getElementById('daymap-mode-row').addEventListener('click', async funct
 
 /* ---------------- Add / edit spot sheet ---------------- */
 let EDITING_SPOT_ID = null;
+let PIN_PICKER_LATLNG = null;
+let PIN_MAP = null;
+let PIN_MARKER = null;
 
 function resetSpotForm(){
   document.getElementById('new-spot-name').value = '';
@@ -2254,6 +2379,8 @@ function resetSpotForm(){
   SELECTED_CAT = '관광';
   document.querySelectorAll('#cat-grid .cat-opt').forEach(o=> o.classList.toggle('active', o.dataset.cat===SELECTED_CAT));
   setRegionToggle(true);
+  PIN_PICKER_LATLNG = null;
+  document.getElementById('pin-status').textContent = '';
 }
 
 function openAddSpot(){
@@ -2279,7 +2406,63 @@ function openEditSpot(spotId){
   document.getElementById('add-spot-heading').textContent = '스팟 수정하기';
   document.getElementById('add-spot-submit-btn').textContent = '저장하기';
   document.getElementById('delete-spot-btn').style.display = 'block';
+  if(s.lat != null && s.lng != null){
+    PIN_PICKER_LATLNG = { lat: s.lat, lng: s.lng };
+    document.getElementById('pin-status').textContent = '위치 지정됨 (탭해서 다시 수정 가능)';
+  } else {
+    PIN_PICKER_LATLNG = null;
+    document.getElementById('pin-status').textContent = '';
+  }
   document.getElementById('sheet-add').classList.add('open');
+}
+
+async function openPinPicker(){
+  document.getElementById('sheet-pinpicker').classList.add('open');
+  setTimeout(initPinMap, 60);
+}
+
+async function initPinMap(){
+  if(PIN_MAP){ PIN_MAP.remove(); PIN_MAP = null; }
+  const container = document.getElementById('pinpicker-leaflet');
+  container.innerHTML = '';
+
+  let center = [35.6762, 139.6503]; // 기본값(도쿄 근처) — 실제로는 아래에서 대부분 덮어써짐
+  if(PIN_PICKER_LATLNG){
+    center = [PIN_PICKER_LATLNG.lat, PIN_PICKER_LATLNG.lng];
+  } else if(CURRENT_TRIP && CURRENT_TRIP.code){
+    try{
+      const tripData = await DB.tripGet(CURRENT_TRIP.code);
+      if(tripData && tripData.weatherLat) center = [tripData.weatherLat, tripData.weatherLng];
+    }catch(e){}
+  }
+
+  PIN_MAP = L.map(container).setView(center, 14);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19, attribution:'&copy; OpenStreetMap'
+  }).addTo(PIN_MAP);
+  PIN_MARKER = L.marker(center, { draggable:true }).addTo(PIN_MAP);
+  PIN_MAP.on('click', function(e){ PIN_MARKER.setLatLng(e.latlng); });
+  setTimeout(function(){ if(PIN_MAP) PIN_MAP.invalidateSize(); }, 100);
+}
+
+function confirmPinPicker(){
+  if(!PIN_MARKER) return;
+  const ll = PIN_MARKER.getLatLng();
+  PIN_PICKER_LATLNG = { lat: ll.lat, lng: ll.lng };
+  document.getElementById('pin-status').textContent = '위치 지정됨 (탭해서 다시 수정 가능)';
+  closePinPicker();
+}
+
+function clearPinPicker(){
+  PIN_PICKER_LATLNG = null;
+  document.getElementById('pin-status').textContent = '';
+  closePinPicker();
+}
+
+function closePinPicker(){
+  closeSheet('sheet-pinpicker');
+  if(PIN_MAP){ PIN_MAP.remove(); PIN_MAP = null; }
+  PIN_MARKER = null;
 }
 
 function closeSheet(id){
@@ -2308,18 +2491,41 @@ async function submitNewSpot(){
 
   try{
     if(EDITING_SPOT_ID){
-      await DB.updateSpot(CURRENT_TRIP.code, EDITING_SPOT_ID, {
-        name, address: address || name, memo, day,
+      const finalAddress = address || name;
+      const existing = SPOTS.find(s => s.id === EDITING_SPOT_ID);
+      const addressChanged = existing && existing.address !== finalAddress;
+      const patch = {
+        name, address: finalAddress, memo, day,
         category: SELECTED_CAT, isDomestic: SELECTED_DOMESTIC
-      });
+      };
+      if(PIN_PICKER_LATLNG){
+        // 직접 찍은 위치가 있으면 그게 우선 — 자동 검색보다 정확해요
+        patch.lat = PIN_PICKER_LATLNG.lat;
+        patch.lng = PIN_PICKER_LATLNG.lng;
+      } else if(addressChanged){
+        // 주소가 바뀌었는데 직접 찍은 위치는 없으면, 예전 좌표를 지워서 다음에 새로 찾게 해요
+        patch.lat = null;
+        patch.lng = null;
+      }
+      await DB.updateSpot(CURRENT_TRIP.code, EDITING_SPOT_ID, patch);
+      if(existing){
+        existing.address = finalAddress;
+        if(patch.lat !== undefined) existing.lat = patch.lat;
+        if(patch.lng !== undefined) existing.lng = patch.lng;
+      }
       toast('스팟을 수정했어요');
     } else {
-      await DB.addSpot(CURRENT_TRIP.code, {
+      const newSpotData = {
         name, address: address || name, memo, day,
         category: SELECTED_CAT, isDomestic: SELECTED_DOMESTIC,
         votes: {}, visited: false, commentCount: 0,
         addedBy: USER.nickname
-      });
+      };
+      if(PIN_PICKER_LATLNG){
+        newSpotData.lat = PIN_PICKER_LATLNG.lat;
+        newSpotData.lng = PIN_PICKER_LATLNG.lng;
+      }
+      await DB.addSpot(CURRENT_TRIP.code, newSpotData);
       toast('스팟을 추가했어요');
     }
     EDITING_SPOT_ID = null;
