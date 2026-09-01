@@ -1445,6 +1445,7 @@ function spotCardHtml(s){
       <button class="icon-action" onclick="toggleComments('${s.id}')">댓글 ${commentCount}</button>
       <div class="spacer"></div>
       <button class="icon-action" onclick="openEditSpot('${s.id}')" title="수정">수정</button>
+      <button class="icon-action" onclick="openMapView('${s.id}')" title="지도에서 보기">지도</button>
       <button class="nav-btn" onclick="openNav('${s.id}')">길찾기</button>
     </div>
     <div class="comments-panel" id="comments-${s.id}"></div>
@@ -1698,6 +1699,19 @@ function openNav(spotId){
   } else {
     // 구글맵: 목적지가 바로 채워진 길찾기 화면으로 열려서, 시작 위치(내 위치)만 확인하면 바로 경로가 나와요.
     window.open(`https://www.google.com/maps/dir/?api=1&destination=${q}`, '_blank');
+  }
+}
+
+function openMapView(spotId){
+  const s = SPOTS.find(x=>x.id===spotId);
+  if(!s) return;
+  const q = encodeURIComponent(s.address || s.name);
+  if(s.isDomestic){
+    // 카카오맵 장소 검색 결과 — 평점, 리뷰, 사진 등을 볼 수 있어요.
+    window.open(`https://map.kakao.com/link/search/${q}`, '_blank');
+  } else {
+    // 구글맵 장소 검색 결과 — 길찾기 없이 평점/리뷰/사진만 보고 싶을 때.
+    window.open(`https://www.google.com/maps/search/?api=1&query=${q}`, '_blank');
   }
 }
 
