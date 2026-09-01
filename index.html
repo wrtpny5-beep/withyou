@@ -329,11 +329,21 @@
   /* ---------- Route builder ---------- */
   .route-row{display:flex; align-items:center; gap:12px; padding:12px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:8px; background:var(--paper-2); cursor:pointer;}
   .route-row.selected{border-color:var(--lilac); background:rgba(224,227,237,0.25);}
-  .route-num{width:26px; height:26px; border-radius:50%; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:12.5px; font-weight:700; color:var(--ink-soft); flex:0 0 auto;}
-  .route-row.selected .route-num{background:var(--amber); border-color:var(--amber); color:var(--ink);}
+  .route-check{width:24px; height:24px; border-radius:7px; border:1.5px solid var(--line); display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:#fff; flex:0 0 auto; background:#fff;}
+  .route-row.selected .route-check{background:var(--amber); border-color:var(--amber); color:var(--ink);}
   .route-row-info{flex:1; min-width:0;}
   .route-row-name{font-size:15px; font-weight:600; color:var(--ink);}
   .route-row-meta{font-size:12.5px; color:var(--slate); margin-top:2px;}
+
+  .route-order-row{display:flex; align-items:center; gap:10px; padding:10px 12px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:8px; background:#fff;}
+  .route-order-num{width:24px; height:24px; border-radius:50%; background:var(--amber); color:var(--ink); font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
+  .route-order-name{flex:1; min-width:0; font-size:14.5px; font-weight:600; color:var(--ink);}
+  .route-order-arrows{display:flex; gap:4px; flex:0 0 auto;}
+  .route-arrow-btn{
+    width:28px; height:28px; border-radius:8px; border:1.5px solid var(--line); background:var(--paper-2);
+    color:var(--ink-soft); font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .route-arrow-btn:disabled{opacity:.3; cursor:default;}
 
   /* ---------- Itinerary ---------- */
   .itin-day-header{
@@ -567,11 +577,19 @@
       <button class="close-x" onclick="closeSheet('sheet-route')">✕</button>
       <div class="sheet-handle"></div>
       <h2>동선 만들기</h2>
-      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">순서대로 탭하면 번호가 매겨져요. 그 순서 그대로 길찾기 경로가 연결됩니다.</p>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">들를 곳을 체크한 다음, "추천 순서로 정렬"을 누르면 효율적인 동선을 계산해줘요. 그 후 화살표로 순서를 직접 조정할 수 있어요.</p>
 
-      <div id="route-spot-list" style="margin-bottom:16px;"></div>
+      <label class="field-label">1. 들를 곳 선택</label>
+      <div id="route-spot-list" style="margin-bottom:14px;"></div>
 
-      <label class="field-label">이동 수단</label>
+      <button class="btn btn-outline" id="route-optimize-btn" onclick="optimizeRouteOrder()">추천 순서로 정렬</button>
+
+      <div id="route-order-section" style="display:none; margin-top:18px;">
+        <label class="field-label">2. 순서 확인 · 조정 (화살표로 이동)</label>
+        <div id="route-order-list"></div>
+      </div>
+
+      <label class="field-label" style="margin-top:16px;">이동 수단</label>
       <div class="toggle-row" id="route-mode-row">
         <div class="toggle-opt active" data-mode="walking">도보</div>
         <div class="toggle-opt" data-mode="transit">대중교통</div>
@@ -1684,11 +1702,12 @@ function openNav(spotId){
 }
 
 /* ---------------- Route builder (여러 곳 한번에 길찾기) ---------------- */
-let ROUTE_SELECTION = []; // spot id 배열, 선택한 순서 그대로
+let ROUTE_SELECTION = []; // spot id 배열 — 선택 순서(추천 정렬 전) 또는 확정된 방문 순서
 let ROUTE_MODE = 'walking';
 
 function openRouteBuilder(){
   renderRouteList();
+  renderRouteOrder();
   updateRouteNote();
   document.getElementById('sheet-route').classList.add('open');
 }
@@ -1700,11 +1719,10 @@ function renderRouteList(){
     return;
   }
   el.innerHTML = SPOTS.map(s=>{
-    const idx = ROUTE_SELECTION.indexOf(s.id);
-    const selected = idx > -1;
+    const selected = ROUTE_SELECTION.includes(s.id);
     return `
     <div class="route-row ${selected?'selected':''}" onclick="toggleRouteSpot('${s.id}')">
-      <div class="route-num">${selected ? (idx+1) : ''}</div>
+      <div class="route-check">${selected ? '✓' : ''}</div>
       <div class="route-row-info">
         <div class="route-row-name">${esc(s.name)}</div>
         <div class="route-row-meta">${esc(s.category)} · ${s.isDomestic?'국내':'해외'}</div>
@@ -1718,12 +1736,107 @@ function toggleRouteSpot(spotId){
   if(idx > -1) ROUTE_SELECTION.splice(idx, 1);
   else ROUTE_SELECTION.push(spotId);
   renderRouteList();
+  renderRouteOrder();
   updateRouteNote();
+}
+
+function renderRouteOrder(){
+  const section = document.getElementById('route-order-section');
+  const list = document.getElementById('route-order-list');
+  if(ROUTE_SELECTION.length < 2){
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  list.innerHTML = ROUTE_SELECTION.map((id, i) => {
+    const s = SPOTS.find(x=>x.id===id);
+    if(!s) return '';
+    return `
+    <div class="route-order-row">
+      <div class="route-order-num">${i+1}</div>
+      <div class="route-order-name">${esc(s.name)}</div>
+      <div class="route-order-arrows">
+        <button class="route-arrow-btn" onclick="moveRouteItem(${i},-1)" ${i===0?'disabled':''}>▲</button>
+        <button class="route-arrow-btn" onclick="moveRouteItem(${i},1)" ${i===ROUTE_SELECTION.length-1?'disabled':''}>▼</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function moveRouteItem(index, dir){
+  const target = index + dir;
+  if(target < 0 || target >= ROUTE_SELECTION.length) return;
+  [ROUTE_SELECTION[index], ROUTE_SELECTION[target]] = [ROUTE_SELECTION[target], ROUTE_SELECTION[index]];
+  renderRouteOrder();
+}
+
+function haversineKm(lat1, lng1, lat2, lng2){
+  const R = 6371;
+  const dLat = (lat2-lat1) * Math.PI/180;
+  const dLng = (lng2-lng1) * Math.PI/180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+function nearestNeighborOrder(points){
+  const remaining = [...points];
+  const path = [remaining.shift()];
+  while(remaining.length){
+    const last = path[path.length-1];
+    let bestIdx = 0, bestDist = Infinity;
+    remaining.forEach((p,i)=>{
+      const d = haversineKm(last.lat, last.lng, p.lat, p.lng);
+      if(d < bestDist){ bestDist = d; bestIdx = i; }
+    });
+    path.push(remaining.splice(bestIdx,1)[0]);
+  }
+  return path.map(p=>p.id);
+}
+
+async function optimizeRouteOrder(){
+  if(ROUTE_SELECTION.length < 2){ toast('두 곳 이상 선택해주세요'); return; }
+  const btn = document.getElementById('route-optimize-btn');
+  btn.disabled = true;
+  btn.textContent = '순서 계산 중...';
+  try{
+    const points = [];
+    const noCoord = [];
+    for(const id of ROUTE_SELECTION){
+      const s = SPOTS.find(x=>x.id===id);
+      if(!s) continue;
+      let lat = s.lat, lng = s.lng;
+      if(lat == null || lng == null){
+        const loc = await geocodeCity(s.address || s.name);
+        if(loc){
+          lat = loc.lat; lng = loc.lng;
+          s.lat = lat; s.lng = lng; // 로컬 캐시
+          DB.updateSpot(CURRENT_TRIP.code, s.id, { lat, lng }).catch(()=>{});
+        }
+      }
+      if(lat != null && lng != null) points.push({ id, lat, lng });
+      else noCoord.push(id);
+    }
+    if(points.length < 2){
+      toast('좌표를 찾지 못해서 순서를 계산할 수 없어요');
+      return;
+    }
+    const ordered = nearestNeighborOrder(points);
+    ROUTE_SELECTION = [...ordered, ...noCoord];
+    renderRouteList();
+    renderRouteOrder();
+    toast(noCoord.length ? '순서를 계산했어요 (일부는 위치를 못 찾아 끝에 붙였어요)' : '효율적인 순서로 정렬했어요');
+  }catch(e){
+    console.error(e);
+    toast('순서 계산에 실패했어요');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '추천 순서로 정렬';
+  }
 }
 
 function clearRoute(){
   ROUTE_SELECTION = [];
   renderRouteList();
+  renderRouteOrder();
   updateRouteNote();
 }
 
@@ -1746,7 +1859,7 @@ function updateRouteNote(){
   if(ROUTE_MODE === 'driving' && hasDomestic){
     note.textContent = '국내 스팟이 포함된 자동차 경로는 구글맵에서 부정확할 수 있어요. 도보나 대중교통을 추천해요.';
   } else {
-    note.textContent = '선택한 순서 그대로(첫 번째 → 마지막) 구글맵 경로가 열려요.';
+    note.textContent = '위 순서 목록의 맨 위 → 맨 아래 순서 그대로 구글맵 경로가 열려요.';
   }
 }
 
