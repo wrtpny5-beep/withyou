@@ -8,6 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <style>
   :root{
     --ink:#3A3B3D;
@@ -345,15 +346,65 @@
   }
   .route-arrow-btn:disabled{opacity:.3; cursor:default;}
 
+  /* ---------- Day map ---------- */
+  .daymap-sheet{
+    height:92vh; max-height:92vh; padding:0 !important; overflow:hidden;
+    display:flex; flex-direction:column; border-radius:22px 22px 0 0;
+  }
+  .daymap-header{padding:16px 20px 12px; flex:0 0 auto; position:relative;}
+  .daymap-header .sheet-handle{margin:0 auto 14px;}
+  #daymap-container{flex:1; position:relative; min-height:0; background:var(--paper-2);}
+  #daymap-leaflet{width:100%; height:100%;}
+  .daymap-loading{
+    position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+    background:var(--paper); font-size:14px; color:var(--ink-soft); z-index:500; text-align:center; padding:0 30px;
+  }
+  .daymap-footer{
+    flex:0 0 auto; padding:14px 20px calc(16px + var(--safe-bottom));
+    background:var(--paper); border-top:1px solid var(--line);
+  }
+  .daymap-progress-wrap{background:var(--paper-2); border-radius:8px; height:8px; overflow:hidden;}
+  .daymap-progress-bar{background:var(--amber); height:100%; border-radius:8px; transition:width .3s;}
+  .daymap-btn-row{display:flex; gap:8px; margin-top:12px;}
+  .daymap-btn-row .btn{flex:1; margin-top:0;}
+  .daymap-btn-row .btn:disabled{opacity:.4;}
+
+  .daymap-pin{
+    width:30px; height:30px; border-radius:50%; background:var(--ink); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:13px;
+    font-family:var(--font-body); border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.35); cursor:pointer;
+  }
+  .daymap-pin.done{background:var(--stamp-green);}
+  .daymap-pin.current{background:var(--amber); color:var(--ink); transform:scale(1.15);}
+  .daymap-label{
+    background:var(--paper) !important; border:1px solid var(--line) !important; border-radius:8px !important;
+    padding:2px 8px !important; font-size:11px !important; font-weight:700 !important; color:var(--ink) !important;
+    box-shadow:none !important;
+  }
+  .daymap-label::before{border-top-color:var(--line) !important;}
+
+  .char-icon{width:32px; height:32px; display:block;}
+  .char-icon svg{width:100%; height:100%; display:block;}
+  .char-walk .frame-b{display:none;}
+  .char-walk.frame-b .frame-a{display:none;}
+  .char-walk.frame-b .frame-b{display:block;}
+
+
   /* ---------- Itinerary ---------- */
   .itin-day-header{
-    display:flex; align-items:baseline; gap:8px; margin:18px 0 8px;
+    display:flex; align-items:center; justify-content:space-between; gap:8px; margin:18px 0 8px;
   }
   .itin-day-header:first-child{margin-top:0;}
   .itin-day-title{font-family:var(--font-display); font-weight:800; font-size:16px; color:var(--ink);}
   .itin-day-date{font-size:12px; color:var(--slate); font-weight:500;}
   .itin-day-header.today .itin-day-title{color:var(--amber-deep);}
   .itin-day-header.today .itin-day-date{color:var(--amber-deep); font-weight:700;}
+  .itin-map-btn{
+    flex:0 0 auto; font-size:12px; font-weight:700; color:var(--ink);
+    background:var(--paper-2); border:1.5px solid var(--line); border-radius:999px;
+    padding:6px 12px; cursor:pointer;
+  }
+  .itin-row.highlight{outline:2px solid var(--amber); outline-offset:2px;}
   .itin-row{
     display:flex; align-items:center; gap:12px; padding:12px; border:1.5px solid var(--line);
     border-radius:12px; margin-bottom:8px; background:var(--paper-2); cursor:pointer;
@@ -656,6 +707,37 @@
     </div>
   </div>
 
+  <!-- ============ DAY MAP SHEET ============ -->
+  <div class="sheet-backdrop" id="sheet-daymap">
+    <div class="sheet daymap-sheet">
+      <button class="close-x" onclick="closeDayMap()">✕</button>
+      <div class="daymap-header">
+        <div class="sheet-handle"></div>
+        <h2 id="daymap-title" style="margin-bottom:10px;">Day 1 여정</h2>
+        <div class="toggle-row" id="daymap-mode-row" style="margin-bottom:0;">
+          <div class="toggle-opt active" data-mode="walking">도보</div>
+          <div class="toggle-opt" data-mode="transit">대중교통</div>
+          <div class="toggle-opt" data-mode="driving">자동차</div>
+        </div>
+      </div>
+      <div id="daymap-container">
+        <div id="daymap-leaflet"></div>
+        <div id="daymap-loading" class="daymap-loading">위치를 찾는 중...</div>
+      </div>
+      <div class="daymap-footer">
+        <div class="daymap-progress-wrap"><div class="daymap-progress-bar" id="daymap-progress"></div></div>
+        <div id="daymap-progress-label" style="font-size:12px; color:var(--slate); margin:6px 0 10px;">오늘의 여정 1/1</div>
+        <div id="daymap-info-name" style="font-family:var(--font-display); font-weight:800; font-size:17px; color:var(--ink);"></div>
+        <div id="daymap-info-meta" style="font-size:13px; color:var(--ink-soft); margin-top:2px;"></div>
+        <div class="daymap-btn-row">
+          <button class="btn btn-outline" id="daymap-prev" onclick="daymapStep(-1)">이전</button>
+          <button class="btn btn-outline" id="daymap-now" onclick="daymapGoNow()">지금</button>
+          <button class="btn btn-outline" id="daymap-next" onclick="daymapStep(1)">다음</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ SETTINGS SHEET ============ -->
   <div class="sheet-backdrop" id="sheet-settings">
     <div class="sheet">
@@ -703,6 +785,7 @@
 <!-- Firebase (compat SDK) - 아래 USE_FIREBASE를 true로 바꾸면 실제로 로드/사용됩니다 -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 /* =======================================================================
    ★ 지금은 로컬 모드입니다 ★
@@ -1496,8 +1579,11 @@ function renderItinerary(){
     const isToday = todayNum && d === todayNum;
     html += `
       <div class="itin-day-header ${isToday?'today':''}">
-        <div class="itin-day-title">Day ${d}${isToday ? ' · 오늘' : ''}</div>
-        <div class="itin-day-date">${dayDateLabel(d)}</div>
+        <div>
+          <div class="itin-day-title">Day ${d}${isToday ? ' · 오늘' : ''}</div>
+          <div class="itin-day-date">${dayDateLabel(d)}</div>
+        </div>
+        <button class="itin-map-btn" onclick="openDayMap(${d})">지도로 보기</button>
       </div>
       ${byDay[d].map(s=>itinRowHtml(s)).join('')}
     `;
@@ -1512,7 +1598,7 @@ function renderItinerary(){
 }
 function itinRowHtml(s){
   return `
-    <div class="itin-row ${s.visited?'done':''}" onclick="itinToggle('${s.id}', ${!!s.visited})">
+    <div class="itin-row ${s.visited?'done':''}" id="itin-row-${s.id}" onclick="itinToggle('${s.id}', ${!!s.visited})">
       <div class="itin-check">${s.visited?'✔':''}</div>
       <div class="itin-row-info">
         <div class="itin-row-name ${s.visited?'done':''}">${esc(s.name)}</div>
@@ -1888,6 +1974,274 @@ function openRouteNav(){
   window.open(url, '_blank');
   closeSheet('sheet-route');
 }
+
+/* ---------------- Day Map (실제 지도 위 하루 일정 + 캐릭터 이동) ---------------- */
+let DAYMAP = {
+  day:null, spots:[], legs:[], pointer:0, mode:'walking',
+  map:null, markers:[], routeLayers:[], charMarker:null, myLocMarker:null
+};
+
+const DAYMAP_WALK_SVG = '<svg class="frame-a" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="6" rx="1" fill="#4A3E42"/><rect x="8" y="9" width="8" height="7" rx="1" fill="#8C7B82"/><rect x="6" y="16" width="3" height="6" fill="#4A3E42"/><rect x="15" y="16" width="3" height="5" fill="#4A3E42"/></svg><svg class="frame-b" viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="6" rx="1" fill="#4A3E42"/><rect x="8" y="9" width="8" height="7" rx="1" fill="#8C7B82"/><rect x="15" y="16" width="3" height="6" fill="#4A3E42"/><rect x="6" y="16" width="3" height="5" fill="#4A3E42"/></svg>';
+const DAYMAP_CAR_SVG = '<svg viewBox="0 0 24 24"><rect x="2" y="10" width="20" height="7" rx="2" fill="#B4676B"/><rect x="6" y="6" width="12" height="6" rx="2" fill="#B4676B"/><circle cx="7" cy="18" r="2.4" fill="#4A3E42"/><circle cx="17" cy="18" r="2.4" fill="#4A3E42"/></svg>';
+const DAYMAP_TRAIN_SVG = '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="14" rx="3" fill="#8CA18F"/><rect x="6" y="7" width="5" height="5" fill="#fff"/><rect x="13" y="7" width="5" height="5" fill="#fff"/><circle cx="8" cy="20" r="1.8" fill="#4A3E42"/><circle cx="16" cy="20" r="1.8" fill="#4A3E42"/></svg>';
+
+function daymapCharHtml(mode){
+  if(mode === 'driving') return '<div class="char-icon char-car">'+DAYMAP_CAR_SVG+'</div>';
+  if(mode === 'transit') return '<div class="char-icon char-train">'+DAYMAP_TRAIN_SVG+'</div>';
+  return '<div class="char-icon char-walk">'+DAYMAP_WALK_SVG+'</div>';
+}
+
+async function openDayMap(dayNum){
+  closeSheet('sheet-itinerary');
+  const daySpots = SPOTS.filter(s=>s.day===dayNum).sort((a,b)=>{
+    const ta = (a.createdAt && a.createdAt.seconds) ? a.createdAt.seconds : (a.createdAt||0);
+    const tb = (b.createdAt && b.createdAt.seconds) ? b.createdAt.seconds : (b.createdAt||0);
+    return ta - tb;
+  });
+  if(daySpots.length === 0){ toast('이 날짜에 등록된 스팟이 없어요'); return; }
+
+  DAYMAP.day = dayNum;
+  DAYMAP.pointer = 0;
+  DAYMAP.mode = 'walking';
+  document.querySelectorAll('#daymap-mode-row .toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.mode==='walking'));
+  document.getElementById('daymap-title').textContent = 'Day ' + dayNum + ' 여정';
+  document.getElementById('sheet-daymap').classList.add('open');
+  const loadingEl = document.getElementById('daymap-loading');
+  loadingEl.style.display = 'flex';
+  loadingEl.textContent = '위치를 찾는 중...';
+
+  const withCoords = await daymapEnsureCoords(daySpots, loadingEl);
+  if(withCoords.length < 1){
+    loadingEl.textContent = '위치를 찾지 못했어요. 스팟 주소에 도시명을 같이 적어보세요.';
+    return;
+  }
+  DAYMAP.spots = withCoords;
+  await daymapInitMap();
+}
+
+async function daymapEnsureCoords(spots, loadingEl){
+  for(const s of spots){
+    if(s.lat == null || s.lng == null){
+      if(loadingEl) loadingEl.textContent = '"' + s.name + '" 위치 찾는 중...';
+      const loc = await geocodeCity(s.address || s.name);
+      if(loc){
+        s.lat = loc.lat; s.lng = loc.lng;
+        DB.updateSpot(CURRENT_TRIP.code, s.id, { lat: loc.lat, lng: loc.lng }).catch(()=>{});
+      }
+    }
+  }
+  return spots.filter(s => s.lat != null && s.lng != null);
+}
+
+async function daymapInitMap(){
+  const loadingEl = document.getElementById('daymap-loading');
+  loadingEl.textContent = '경로를 계산하는 중...';
+  if(DAYMAP.map){ DAYMAP.map.remove(); DAYMAP.map = null; }
+  const container = document.getElementById('daymap-leaflet');
+  container.innerHTML = '';
+  const map = L.map(container, { zoomControl:true, attributionControl:true });
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom:19, attribution:'&copy; OpenStreetMap'
+  }).addTo(map);
+  DAYMAP.map = map;
+
+  await daymapBuildLegs();
+  daymapRenderMarkers();
+  daymapRenderRouteLines();
+  daymapPlaceCharacter();
+
+  const bounds = L.latLngBounds(DAYMAP.spots.map(s=>[s.lat, s.lng]));
+  map.fitBounds(bounds, { padding:[40,40] });
+  setTimeout(function(){ map.invalidateSize(); }, 150);
+
+  loadingEl.style.display = 'none';
+  daymapUpdateInfoBox();
+}
+
+async function daymapBuildLegs(){
+  DAYMAP.legs = [];
+  for(let i=0; i<DAYMAP.spots.length-1; i++){
+    const a = DAYMAP.spots[i], b = DAYMAP.spots[i+1];
+    let coords = null;
+    if(DAYMAP.mode === 'driving'){
+      coords = await daymapFetchOSRM(a.lat, a.lng, b.lat, b.lng);
+    }
+    if(!coords) coords = [[a.lat,a.lng],[b.lat,b.lng]];
+    DAYMAP.legs.push(coords);
+  }
+}
+async function daymapFetchOSRM(lat1,lng1,lat2,lng2){
+  try{
+    const url = 'https://router.project-osrm.org/route/v1/driving/' + lng1 + ',' + lat1 + ';' + lng2 + ',' + lat2 + '?overview=full&geometries=geojson';
+    const res = await fetch(url);
+    if(!res.ok) return null;
+    const data = await res.json();
+    const route = data.routes && data.routes[0];
+    if(!route) return null;
+    return route.geometry.coordinates.map(function(c){ return [c[1], c[0]]; });
+  }catch(e){ return null; }
+}
+
+function daymapRenderMarkers(){
+  DAYMAP.markers.forEach(function(m){ DAYMAP.map.removeLayer(m); });
+  DAYMAP.markers = DAYMAP.spots.map(function(s, i){
+    const icon = L.divIcon({
+      className:'',
+      html:'<div class="daymap-pin ' + (s.visited?'done':'') + ' ' + (i===DAYMAP.pointer?'current':'') + '">' + (i+1) + '</div>',
+      iconSize:[30,30], iconAnchor:[15,15]
+    });
+    const marker = L.marker([s.lat, s.lng], { icon: icon }).addTo(DAYMAP.map);
+    marker.bindTooltip(esc(s.name), { permanent:true, direction:'top', offset:[0,-16], className:'daymap-label' });
+    marker.on('click', function(){ daymapJumpToSpot(s.id); });
+    return marker;
+  });
+}
+
+function daymapRenderRouteLines(){
+  DAYMAP.routeLayers.forEach(function(l){ DAYMAP.map.removeLayer(l); });
+  DAYMAP.routeLayers = DAYMAP.legs.map(function(coords, i){
+    const traveled = i < DAYMAP.pointer;
+    const style = traveled
+      ? { color:'#4A3E42', weight:4, opacity:0.9 }
+      : { color:'#9C9C9C', weight:3, opacity:0.75, dashArray:'6,8' };
+    return L.polyline(coords, style).addTo(DAYMAP.map);
+  });
+}
+
+function daymapPlaceCharacter(){
+  const s = DAYMAP.spots[DAYMAP.pointer];
+  if(!s) return;
+  const icon = L.divIcon({ className:'', html: daymapCharHtml(DAYMAP.mode), iconSize:[32,32], iconAnchor:[16,16] });
+  if(DAYMAP.charMarker) DAYMAP.map.removeLayer(DAYMAP.charMarker);
+  DAYMAP.charMarker = L.marker([s.lat, s.lng], { icon: icon, zIndexOffset:1000 }).addTo(DAYMAP.map);
+}
+
+function daymapSegDistances(coords){
+  let total = 0; const dists = [0];
+  for(let i=1;i<coords.length;i++){
+    total += haversineKm(coords[i-1][0], coords[i-1][1], coords[i][0], coords[i][1]);
+    dists.push(total);
+  }
+  return { total: total, dists: dists };
+}
+function daymapPosAtFraction(coords, dists, total, frac){
+  const target = total * frac;
+  for(let i=1;i<dists.length;i++){
+    if(dists[i] >= target){
+      const segStart = dists[i-1], segEnd = dists[i];
+      const segFrac = segEnd > segStart ? (target-segStart)/(segEnd-segStart) : 0;
+      const a = coords[i-1], b = coords[i];
+      return [a[0]+(b[0]-a[0])*segFrac, a[1]+(b[1]-a[1])*segFrac];
+    }
+  }
+  return coords[coords.length-1];
+}
+function daymapAnimateAlong(rawCoords, forward){
+  return new Promise(function(resolve){
+    const coords = forward ? rawCoords : rawCoords.slice().reverse();
+    const dd = daymapSegDistances(coords);
+    const total = dd.total, dists = dd.dists;
+    const duration = Math.min(4000, Math.max(1600, total*800));
+    const start = performance.now();
+    let walkInterval = null;
+    if(DAYMAP.mode === 'walking' && DAYMAP.charMarker){
+      const el = DAYMAP.charMarker.getElement();
+      if(el){
+        walkInterval = setInterval(function(){
+          const iconEl = el.querySelector('.char-walk');
+          if(iconEl) iconEl.classList.toggle('frame-b');
+        }, 260);
+      }
+    }
+    function frame(now){
+      const t = Math.min(1, (now-start)/duration);
+      const pos = daymapPosAtFraction(coords, dists, total, t);
+      if(DAYMAP.charMarker) DAYMAP.charMarker.setLatLng(pos);
+      if(DAYMAP.map){
+        try{
+          if(!DAYMAP.map.getBounds().pad(-0.15).contains(pos)) DAYMAP.map.panTo(pos, {animate:false});
+        }catch(e){}
+      }
+      if(t < 1){ requestAnimationFrame(frame); }
+      else { if(walkInterval) clearInterval(walkInterval); resolve(); }
+    }
+    requestAnimationFrame(frame);
+  });
+}
+
+async function daymapStep(delta){
+  const newPointer = DAYMAP.pointer + delta;
+  if(newPointer < 0 || newPointer >= DAYMAP.spots.length) return;
+  const legIndex = delta > 0 ? DAYMAP.pointer : newPointer;
+  const legCoords = DAYMAP.legs[legIndex];
+  if(legCoords) await daymapAnimateAlong(legCoords, delta > 0);
+  DAYMAP.pointer = newPointer;
+  daymapRenderMarkers();
+  daymapRenderRouteLines();
+  daymapUpdateInfoBox();
+}
+
+function daymapUpdateInfoBox(){
+  const s = DAYMAP.spots[DAYMAP.pointer];
+  if(!s) return;
+  document.getElementById('daymap-info-name').textContent = s.name;
+  document.getElementById('daymap-info-meta').textContent = s.category + ' · ' + (s.isDomestic?'국내':'해외');
+  document.getElementById('daymap-progress-label').textContent = '오늘의 여정 ' + (DAYMAP.pointer+1) + '/' + DAYMAP.spots.length;
+  document.getElementById('daymap-progress').style.width = (((DAYMAP.pointer+1)/DAYMAP.spots.length)*100) + '%';
+  document.getElementById('daymap-prev').disabled = DAYMAP.pointer === 0;
+  document.getElementById('daymap-next').disabled = DAYMAP.pointer === DAYMAP.spots.length-1;
+}
+
+function daymapGoNow(){
+  if(!navigator.geolocation){ toast('이 브라우저는 위치 정보를 지원하지 않아요'); return; }
+  navigator.geolocation.getCurrentPosition(function(pos){
+    const latitude = pos.coords.latitude, longitude = pos.coords.longitude;
+    if(DAYMAP.myLocMarker) DAYMAP.map.removeLayer(DAYMAP.myLocMarker);
+    DAYMAP.myLocMarker = L.circleMarker([latitude,longitude], {
+      radius:8, color:'#fff', weight:2, fillColor:'#4A90D9', fillOpacity:1
+    }).addTo(DAYMAP.map);
+    DAYMAP.map.panTo([latitude,longitude]);
+  }, function(){
+    toast('위치 권한을 허용해주세요');
+  }, { timeout:8000 });
+}
+
+function daymapJumpToSpot(spotId){
+  closeDayMap();
+  openItinerary();
+  setTimeout(function(){
+    const el = document.getElementById('itin-row-'+spotId);
+    if(el){
+      el.scrollIntoView({ behavior:'smooth', block:'center' });
+      el.classList.add('highlight');
+      setTimeout(function(){ el.classList.remove('highlight'); }, 1500);
+    }
+  }, 350);
+}
+
+function closeDayMap(){
+  closeSheet('sheet-daymap');
+  if(DAYMAP.map){ DAYMAP.map.remove(); DAYMAP.map = null; }
+  DAYMAP.markers = [];
+  DAYMAP.routeLayers = [];
+  DAYMAP.charMarker = null;
+  DAYMAP.myLocMarker = null;
+}
+
+document.getElementById('daymap-mode-row').addEventListener('click', async function(e){
+  const opt = e.target.closest('.toggle-opt');
+  if(!opt || !DAYMAP.map) return;
+  document.querySelectorAll('#daymap-mode-row .toggle-opt').forEach(function(o){ o.classList.remove('active'); });
+  opt.classList.add('active');
+  DAYMAP.mode = opt.dataset.mode;
+  const loadingEl = document.getElementById('daymap-loading');
+  loadingEl.style.display = 'flex';
+  loadingEl.textContent = '경로를 다시 계산하는 중...';
+  await daymapBuildLegs();
+  daymapRenderRouteLines();
+  daymapPlaceCharacter();
+  loadingEl.style.display = 'none';
+});
 
 /* ---------------- Add / edit spot sheet ---------------- */
 let EDITING_SPOT_ID = null;
