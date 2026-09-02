@@ -268,6 +268,13 @@
     font-size:13px; font-weight:800; line-height:1; border:none; cursor:pointer;
     box-shadow:0 8px 20px rgba(74,62,66,0.4); z-index:30; font-family:var(--font-body);
   }
+  .fab-gallery{
+    position:fixed; bottom:calc(154px + var(--safe-bottom)); right:20px;
+    width:56px; height:56px; border-radius:50%; background:var(--ink); color:var(--stamp-green);
+    align-items:center; justify-content:center; padding:0; margin:0;
+    font-size:13px; font-weight:800; line-height:1; border:none; cursor:pointer;
+    box-shadow:0 8px 20px rgba(74,62,66,0.4); z-index:30; font-family:var(--font-body);
+  }
 
   /* ---------- Sheet / Modal ---------- */
   .sheet-backdrop{
@@ -339,6 +346,33 @@
   .findgroup-dot{width:10px; height:10px; border-radius:50%; background:var(--stamp-green); flex:0 0 auto;}
   .findgroup-name{flex:1; min-width:0; font-size:14px; font-weight:600; color:var(--ink);}
   .findgroup-time{flex:0 0 auto; font-size:12px; color:var(--slate);}
+
+  /* ---------- Photo sharing ---------- */
+  #photo-grid{display:grid; grid-template-columns:repeat(3,1fr); gap:8px;}
+  .photo-thumb-wrap{position:relative; aspect-ratio:1/1; border-radius:10px; overflow:hidden; background:var(--paper-2);}
+  .photo-thumb{width:100%; height:100%; object-fit:cover; cursor:pointer; display:block;}
+  .photo-thumb-by{
+    position:absolute; left:0; right:0; bottom:0; padding:4px 6px; font-size:10px; font-weight:600; color:#fff;
+    background:linear-gradient(0deg, rgba(0,0,0,.55), transparent); pointer-events:none;
+  }
+  .photo-del-btn{
+    position:absolute; top:4px; right:4px; width:22px; height:22px; border-radius:50%;
+    background:rgba(0,0,0,0.55); color:#fff; border:none; font-size:12px; line-height:1; cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .photo-uploading{
+    aspect-ratio:1/1; border-radius:10px; background:var(--paper-2); display:flex; align-items:center; justify-content:center;
+    font-size:11px; color:var(--slate); text-align:center; padding:6px;
+  }
+
+  #sheet-lightbox{background:rgba(11,10,10,0.94);}
+  #lightbox-stage{touch-action:pan-y;}
+  #lightbox-img{max-width:92vw; max-height:74vh; border-radius:10px; object-fit:contain; display:block;}
+  .lightbox-arrow{
+    background:rgba(255,255,255,0.12); color:#fff; border:none; width:40px; height:40px; border-radius:50%;
+    font-size:24px; cursor:pointer; flex:0 0 auto; margin:0 6px; display:flex; align-items:center; justify-content:center;
+  }
+  .lightbox-arrow:disabled{opacity:.25; cursor:default;}
   .code-pill{background:var(--paper-2); border:1px dashed var(--amber-deep); padding:7px 14px; border-radius:8px; font-family:var(--font-display); font-weight:800; letter-spacing:.06em; font-size:15px;}
 
   .trip-pick-item{
@@ -595,6 +629,7 @@
 
     <main id="spot-list"></main>
 
+    <button class="fab-gallery" id="fab-gallery" onclick="openPhotos()" title="사진첩" style="display:none;">사진</button>
     <button class="fab-findgroup" id="fab-findgroup" onclick="openFindGroup()" title="일행 찾기">일행</button>
     <button class="fab" onclick="openAddSpot()">＋</button>
   </div>
@@ -758,6 +793,33 @@
     </div>
   </div>
 
+  <!-- ============ PHOTOS SHEET ============ -->
+  <div class="sheet-backdrop" id="sheet-photos">
+    <div class="sheet">
+      <button class="close-x" onclick="closeSheet('sheet-photos')">✕</button>
+      <div class="sheet-handle"></div>
+      <h2>사진 공유</h2>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">일행 모두가 같이 보는 사진첩이에요.</p>
+      <input type="file" id="photo-file-input" accept="image/*" style="display:none;" onchange="handlePhotoSelected(event)">
+      <button class="btn btn-amber" id="photo-upload-btn" onclick="document.getElementById('photo-file-input').click()">사진 올리기</button>
+      <div id="photo-grid" style="margin-top:16px;"></div>
+    </div>
+  </div>
+
+  <!-- ============ PHOTO LIGHTBOX ============ -->
+  <div class="sheet-backdrop" id="sheet-lightbox" style="align-items:center; flex-direction:column;" onclick="closeLightbox()">
+    <button class="close-x" style="position:fixed; top:calc(14px + var(--safe-top)); right:16px; color:#fff;" onclick="closeLightbox()">✕</button>
+    <div id="lightbox-counter" style="position:fixed; top:calc(18px + var(--safe-top)); left:20px; color:#fff; font-size:13px; font-weight:600;"></div>
+    <div id="lightbox-stage" style="position:relative; width:100%; display:flex; align-items:center; justify-content:center;">
+      <button class="lightbox-arrow" id="lightbox-prev" onclick="event.stopPropagation(); lightboxStep(-1)">‹</button>
+      <img id="lightbox-img" src="" alt="" onclick="event.stopPropagation();">
+      <button class="lightbox-arrow" id="lightbox-next" onclick="event.stopPropagation(); lightboxStep(1)">›</button>
+    </div>
+    <div style="position:fixed; bottom:calc(24px + var(--safe-bottom)); display:flex; gap:10px;">
+      <button class="btn btn-outline" style="margin-top:0; width:auto; padding:12px 22px;" onclick="event.stopPropagation(); downloadCurrentPhoto()">다운로드</button>
+    </div>
+  </div>
+
   <!-- ============ FIND GROUP SHEET ============ -->
   <div class="sheet-backdrop" id="sheet-findgroup">
     <div class="sheet daymap-sheet">
@@ -877,6 +939,7 @@
       <button class="btn btn-outline" id="btn-find-group" style="display:none;" onclick="closeSheet('sheet-settings'); openFindGroup();">일행 찾기 (지도에서 위치 보기)</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openItinerary();">전체 일정 보기</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openChecklist();">준비물 체크리스트</button>
+      <button class="btn btn-outline" id="btn-open-photos" style="display:none;" onclick="closeSheet('sheet-settings'); openPhotos();">사진 공유</button>
       <button class="btn btn-outline" onclick="changeTripCity()">배경사진 바꾸기</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openSurvey();">사전 설문 작성/수정하기</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openSurveyResults();">일행 의견 보기</button>
@@ -928,6 +991,19 @@ const USE_FIREBASE = true; // ← Firebase 연결 완료
    정확도로 동작해요. 비워두면 위키백과/Open-Meteo만 사용해요 (정확도 낮음).
 ------------------------------------------------------------------------- */
 const GEOCODE_PROXY_URL = 'https://withyou.wrtpny5.workers.dev'; // 예: 'https://your-worker.yourname.workers.dev'
+
+/* -------------------------------------------------------------------------
+   사진 공유 (Cloudinary, 선택 사항)
+   -------------------------------------------------------------------------
+   1) https://cloudinary.com 무료 가입
+   2) 대시보드에서 "Cloud name" 확인해서 아래 CLOUDINARY_CLOUD_NAME에 붙여넣기
+   3) Settings → Upload → Upload presets → Add upload preset
+      → Signing Mode를 "Unsigned"로 설정 → 저장 후 나온 preset 이름을
+      아래 CLOUDINARY_UPLOAD_PRESET에 붙여넣기
+   둘 다 비워두면 "사진 공유" 기능이 숨겨져요.
+------------------------------------------------------------------------- */
+const CLOUDINARY_CLOUD_NAME = '';
+const CLOUDINARY_UPLOAD_PRESET = '';
 
 const firebaseConfig = {
   apiKey: "AIzaSyDTEqZyVIlXTD3R2ShnnZ2R5t4hIGK4co4",
@@ -1624,6 +1700,12 @@ function loadTrip(code){
   localStorage.setItem('dh_last_trip', code);
   document.getElementById('screen-trips').style.display = 'none';
   document.getElementById('screen-main').style.display = 'flex';
+
+  const photoEnabled = !!(CLOUDINARY_CLOUD_NAME && CLOUDINARY_UPLOAD_PRESET);
+  const fabGallery = document.getElementById('fab-gallery');
+  const btnPhotos = document.getElementById('btn-open-photos');
+  if(fabGallery) fabGallery.style.display = photoEnabled ? 'flex' : 'none';
+  if(btnPhotos) btnPhotos.style.display = photoEnabled ? 'block' : 'none';
 
   DB.tripGet(code).then(data=>{
     if(data){
@@ -2970,6 +3052,142 @@ async function addMemberFromManage(){
     toast('추가에 실패했어요');
   }
 }
+
+/* ---------------- 사진 공유 (Cloudinary) ---------------- */
+function cloudinaryThumb(url){
+  if(!url || url.indexOf('/upload/') === -1) return url;
+  return url.replace('/upload/', '/upload/w_400,h_400,c_fill,q_auto,f_auto/');
+}
+
+async function openPhotos(){
+  document.getElementById('sheet-photos').classList.add('open');
+  if(!CURRENT_TRIP.photos){
+    try{
+      const data = await DB.tripGet(CURRENT_TRIP.code);
+      CURRENT_TRIP.photos = (data && data.photos) || [];
+    }catch(e){ CURRENT_TRIP.photos = []; }
+  }
+  renderPhotoGrid();
+}
+
+function renderPhotoGrid(){
+  const grid = document.getElementById('photo-grid');
+  const photos = CURRENT_TRIP.photos || [];
+  if(photos.length === 0){
+    grid.innerHTML = `<p style="grid-column:1/-1; text-align:center; color:var(--slate); font-size:13.5px; padding:20px 0;">아직 사진이 없어요.</p>`;
+    return;
+  }
+  grid.innerHTML = photos.map((p,i)=>`
+    <div class="photo-thumb-wrap">
+      <img class="photo-thumb" src="${cloudinaryThumb(p.url)}" alt="" onclick="openLightbox(${i})">
+      <div class="photo-thumb-by">${esc(p.uploadedBy||'')}</div>
+      ${p.uploadedByUid===USER.uid ? `<button class="photo-del-btn" onclick="event.stopPropagation(); deletePhoto('${p.id}')">✕</button>` : ''}
+    </div>
+  `).join('');
+}
+
+async function handlePhotoSelected(event){
+  const file = event.target.files[0];
+  event.target.value = '';
+  if(!file) return;
+  if(!CLOUDINARY_CLOUD_NAME || !CLOUDINARY_UPLOAD_PRESET){ toast('사진 공유가 아직 설정되지 않았어요'); return; }
+  const uploadBtn = document.getElementById('photo-upload-btn');
+  uploadBtn.disabled = true;
+  uploadBtn.textContent = '업로드 중...';
+  try{
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('upload_preset', CLOUDINARY_UPLOAD_PRESET);
+    const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method:'POST', body: formData });
+    const data = await res.json();
+    if(!data.secure_url) throw new Error('no secure_url in response');
+    const photo = { id:'p_'+uid(10), url: data.secure_url, uploadedBy: USER.nickname, uploadedByUid: USER.uid, uploadedAt: Date.now() };
+    const updated = [...(CURRENT_TRIP.photos||[]), photo];
+    await DB.tripUpdate(CURRENT_TRIP.code, { photos: updated });
+    CURRENT_TRIP.photos = updated;
+    renderPhotoGrid();
+    toast('사진을 올렸어요');
+  }catch(e){
+    console.error(e);
+    toast('업로드에 실패했어요');
+  }finally{
+    uploadBtn.disabled = false;
+    uploadBtn.textContent = '사진 올리기';
+  }
+}
+
+async function deletePhoto(photoId){
+  if(!confirm('이 사진을 삭제할까요?')) return;
+  const updated = (CURRENT_TRIP.photos||[]).filter(p=>p.id!==photoId);
+  try{
+    await DB.tripUpdate(CURRENT_TRIP.code, { photos: updated });
+    CURRENT_TRIP.photos = updated;
+    renderPhotoGrid();
+    toast('삭제했어요');
+  }catch(e){
+    console.error(e);
+    toast('삭제에 실패했어요');
+  }
+}
+
+let LIGHTBOX_INDEX = 0;
+let LIGHTBOX_TOUCH_START_X = null;
+
+function openLightbox(index){
+  LIGHTBOX_INDEX = index;
+  document.getElementById('sheet-lightbox').classList.add('open');
+  updateLightboxView();
+}
+function updateLightboxView(){
+  const photos = CURRENT_TRIP.photos || [];
+  const p = photos[LIGHTBOX_INDEX];
+  if(!p) return;
+  document.getElementById('lightbox-img').src = p.url;
+  document.getElementById('lightbox-counter').textContent = (LIGHTBOX_INDEX+1) + ' / ' + photos.length;
+  document.getElementById('lightbox-prev').disabled = LIGHTBOX_INDEX === 0;
+  document.getElementById('lightbox-next').disabled = LIGHTBOX_INDEX === photos.length-1;
+}
+function lightboxStep(delta){
+  const photos = CURRENT_TRIP.photos || [];
+  const newIndex = LIGHTBOX_INDEX + delta;
+  if(newIndex < 0 || newIndex >= photos.length) return;
+  LIGHTBOX_INDEX = newIndex;
+  updateLightboxView();
+}
+function closeLightbox(){
+  closeSheet('sheet-lightbox');
+}
+async function downloadCurrentPhoto(){
+  const photos = CURRENT_TRIP.photos || [];
+  const p = photos[LIGHTBOX_INDEX];
+  if(!p) return;
+  try{
+    const res = await fetch(p.url);
+    const blob = await res.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = 'photo-' + p.id + '.jpg';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(()=> URL.revokeObjectURL(blobUrl), 3000);
+  }catch(e){
+    console.error(e);
+    window.open(p.url, '_blank');
+    toast('자동 다운로드가 안 되면 새 탭에서 길게 눌러 저장해주세요');
+  }
+}
+
+document.getElementById('lightbox-stage').addEventListener('touchstart', (e)=>{
+  LIGHTBOX_TOUCH_START_X = e.touches[0].clientX;
+});
+document.getElementById('lightbox-stage').addEventListener('touchend', (e)=>{
+  if(LIGHTBOX_TOUCH_START_X == null) return;
+  const dx = e.changedTouches[0].clientX - LIGHTBOX_TOUCH_START_X;
+  if(Math.abs(dx) > 50){ lightboxStep(dx < 0 ? 1 : -1); }
+  LIGHTBOX_TOUCH_START_X = null;
+});
 
 /* ---------------- Survey (사전 설문) ---------------- */
 function updateSurveyBanner(){
