@@ -257,6 +257,12 @@
     display:flex; align-items:center; justify-content:center; font-size:28px; border:none; cursor:pointer;
     box-shadow:0 8px 20px rgba(74,62,66,0.4); z-index:30;
   }
+  .fab-findgroup{
+    position:fixed; bottom:calc(94px + var(--safe-bottom)); right:20px;
+    width:52px; height:52px; border-radius:50%; background:var(--ink); color:var(--stamp-green);
+    display:none; align-items:center; justify-content:center; font-size:22px; border:none; cursor:pointer;
+    box-shadow:0 8px 20px rgba(74,62,66,0.4); z-index:30;
+  }
 
   /* ---------- Sheet / Modal ---------- */
   .sheet-backdrop{
@@ -303,6 +309,31 @@
   .settings-list .s-item:last-child{border-bottom:none;}
   .settings-list .s-label{font-size:15.5px; font-weight:500; color:var(--ink-soft);}
   .settings-list .s-value{font-size:14.5px; color:var(--slate); font-weight:500;}
+  .toggle-switch{
+    width:44px; height:26px; border-radius:999px; background:var(--line); position:relative;
+    cursor:pointer; flex:0 0 auto; transition:background .2s;
+  }
+  .toggle-switch.on{background:var(--stamp-green);}
+  .toggle-switch-knob{
+    width:20px; height:20px; border-radius:50%; background:#fff; position:absolute; top:3px; left:3px;
+    box-shadow:0 1px 3px rgba(0,0,0,.3); transition:left .2s;
+  }
+  .toggle-switch.on .toggle-switch-knob{left:21px;}
+
+  #findgroup-container{flex:1; position:relative; min-height:0; background:var(--paper-2); overflow:hidden;}
+  #findgroup-leaflet{width:100%; height:100%;}
+  .findgroup-pin{
+    width:34px; height:34px; border-radius:50% 50% 50% 4px; background:var(--stamp-green); color:#fff;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:12px;
+    font-family:var(--font-body); border:2px solid #fff; box-shadow:0 2px 6px rgba(0,0,0,.35);
+    transform:rotate(-45deg);
+  }
+  .findgroup-pin span{transform:rotate(45deg);}
+  .findgroup-row{display:flex; align-items:center; gap:10px; padding:9px 4px;}
+  .findgroup-row:not(:last-child){border-bottom:1px solid var(--line);}
+  .findgroup-dot{width:10px; height:10px; border-radius:50%; background:var(--stamp-green); flex:0 0 auto;}
+  .findgroup-name{flex:1; min-width:0; font-size:14px; font-weight:600; color:var(--ink);}
+  .findgroup-time{flex:0 0 auto; font-size:12px; color:var(--slate);}
   .code-pill{background:var(--paper-2); border:1px dashed var(--amber-deep); padding:7px 14px; border-radius:8px; font-family:var(--font-display); font-weight:800; letter-spacing:.06em; font-size:15px;}
 
   .trip-pick-item{
@@ -560,6 +591,7 @@
 
     <main id="spot-list"></main>
 
+    <button class="fab-findgroup" id="fab-findgroup" onclick="openFindGroup()" title="일행 찾기">📯</button>
     <button class="fab" onclick="openAddSpot()">＋</button>
   </div>
 
@@ -722,6 +754,26 @@
     </div>
   </div>
 
+  <!-- ============ FIND GROUP SHEET ============ -->
+  <div class="sheet-backdrop" id="sheet-findgroup">
+    <div class="sheet daymap-sheet">
+      <button class="close-x" onclick="closeFindGroup()">✕</button>
+      <div class="daymap-header">
+        <div class="sheet-handle"></div>
+        <h2 style="margin-bottom:6px;">일행 찾기</h2>
+        <p style="font-size:13px; color:var(--ink-soft); line-height:1.5; margin:0;">위치 공유를 켠 멤버만 지도에 표시돼요. 대략 20~30초마다 자동으로 새로고침돼요.</p>
+      </div>
+      <div id="findgroup-container">
+        <div id="findgroup-leaflet"></div>
+        <div id="findgroup-loading" class="daymap-loading">위치 불러오는 중...</div>
+      </div>
+      <div class="daymap-footer">
+        <div id="findgroup-empty" style="display:none; font-size:13.5px; color:var(--slate); text-align:center; padding:6px 0;">아직 위치를 공유 중인 멤버가 없어요. 설정에서 "내 위치 공유하기"를 켜보세요.</div>
+        <div id="findgroup-list"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- ============ ITINERARY SHEET ============ -->
   <div class="sheet-backdrop" id="sheet-itinerary">
     <div class="sheet">
@@ -803,10 +855,17 @@
           <span class="s-label">데이터 저장</span>
           <span class="s-value" id="set-sync-status">이 기기에만 저장됨</span>
         </div>
+        <div class="s-item" id="set-locshare-row" style="display:none;">
+          <span class="s-label">내 위치 공유하기</span>
+          <div class="toggle-switch" id="locshare-toggle" onclick="toggleLocationSharing()">
+            <div class="toggle-switch-knob"></div>
+          </div>
+        </div>
       </div>
       <button class="btn btn-outline" onclick="editNickname()">닉네임 바꾸기</button>
       <button class="btn btn-outline" id="btn-switch-member" style="display:none;" onclick="switchMemberIdentity()">다른 사람으로 로그인</button>
       <button class="btn btn-outline" id="btn-manage-members" style="display:none;" onclick="closeSheet('sheet-settings'); openMemberManage();">멤버 관리 (중복/삭제)</button>
+      <button class="btn btn-outline" id="btn-find-group" style="display:none;" onclick="closeSheet('sheet-settings'); openFindGroup();">일행 찾기 (지도에서 위치 보기)</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openItinerary();">전체 일정 보기</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openChecklist();">준비물 체크리스트</button>
       <button class="btn btn-outline" onclick="changeTripCity()">배경사진 바꾸기</button>
@@ -1229,6 +1288,7 @@ function switchTripScreen(){
   if(UNSUB_SPOTS) UNSUB_SPOTS();
   if(UNSUB_COMMENTS) UNSUB_COMMENTS();
   if(UNSUB_SURVEY) UNSUB_SURVEY();
+  if(LOCATION_WATCH_ID != null){ navigator.geolocation.clearWatch(LOCATION_WATCH_ID); LOCATION_WATCH_ID = null; }
   showTripPicker();
 }
 
@@ -2660,9 +2720,15 @@ function updateNicknameDisplays(){
   const myCodeEl = document.getElementById('set-mycode');
   const switchBtn = document.getElementById('btn-switch-member');
   const manageBtn = document.getElementById('btn-manage-members');
+  const findGroupBtn = document.getElementById('btn-find-group');
+  const findGroupChip = document.getElementById('fab-findgroup');
+  const locShareRow = document.getElementById('set-locshare-row');
   const hasMembers = (CURRENT_TRIP.members||[]).length > 0;
   if(switchBtn) switchBtn.style.display = hasMembers ? 'block' : 'none';
   if(manageBtn) manageBtn.style.display = hasMembers ? 'block' : 'none';
+  if(findGroupBtn) findGroupBtn.style.display = hasMembers ? 'block' : 'none';
+  if(findGroupChip) findGroupChip.style.display = hasMembers ? 'flex' : 'none';
+  if(locShareRow) locShareRow.style.display = hasMembers ? 'flex' : 'none';
   if(myCodeRow && myCodeEl){
     const mine = (CURRENT_TRIP.members||[]).find(m=>m.id===USER.uid);
     if(mine){
@@ -2675,6 +2741,7 @@ function updateNicknameDisplays(){
   if(CURRENT_TRIP && CURRENT_TRIP.code){
     MY_SURVEY = SURVEYS.find(s=>s.uid===USER.uid) || null;
     updateSurveyBanner();
+    initLocationSharingState();
   }
 }
 
@@ -2683,6 +2750,169 @@ function switchMemberIdentity(){
   closeSheet('sheet-settings');
   renderMemberPicker(CURRENT_TRIP.members);
   document.getElementById('sheet-who').classList.add('open');
+}
+
+/* ---------------- 내 위치 공유 / 일행 찾기 ---------------- */
+let LOCATION_WATCH_ID = null;
+let LOCATION_LAST_WRITE = 0;
+const LOCATION_WRITE_INTERVAL = 20000; // 최소 20초 간격으로만 서버에 씀
+
+function locShareKey(){ return 'dh_locshare_' + (CURRENT_TRIP ? CURRENT_TRIP.code : ''); }
+
+function initLocationSharingState(){
+  const toggle = document.getElementById('locshare-toggle');
+  if(!toggle) return;
+  const wasSharing = localStorage.getItem(locShareKey()) === '1';
+  toggle.classList.toggle('on', wasSharing);
+  if(wasSharing && LOCATION_WATCH_ID == null){
+    startLocationSharing(true);
+  }
+}
+
+function toggleLocationSharing(){
+  const toggle = document.getElementById('locshare-toggle');
+  const turningOn = !toggle.classList.contains('on');
+  if(turningOn){
+    startLocationSharing(false);
+  } else {
+    stopLocationSharing();
+  }
+}
+
+function startLocationSharing(silent){
+  if(!navigator.geolocation){ toast('이 브라우저는 위치 정보를 지원하지 않아요'); return; }
+  if(LOCATION_WATCH_ID != null) return;
+  LOCATION_WATCH_ID = navigator.geolocation.watchPosition(
+    async (pos)=>{
+      const toggle = document.getElementById('locshare-toggle');
+      if(toggle) toggle.classList.add('on');
+      localStorage.setItem(locShareKey(), '1');
+      const now = Date.now();
+      if(now - LOCATION_LAST_WRITE < LOCATION_WRITE_INTERVAL) return;
+      LOCATION_LAST_WRITE = now;
+      await writeMyLocation(pos.coords.latitude, pos.coords.longitude);
+    },
+    ()=>{
+      if(!silent) toast('위치 권한을 허용해주세요');
+      const toggle = document.getElementById('locshare-toggle');
+      if(toggle) toggle.classList.remove('on');
+      localStorage.removeItem(locShareKey());
+      LOCATION_WATCH_ID = null;
+    },
+    { enableHighAccuracy:false, maximumAge:15000, timeout:15000 }
+  );
+}
+
+async function writeMyLocation(lat, lng){
+  if(!CURRENT_TRIP || !CURRENT_TRIP.members) return;
+  const updated = CURRENT_TRIP.members.map(m =>
+    m.id === USER.uid ? { ...m, loc: { lat, lng, updatedAt: Date.now() } } : m
+  );
+  try{
+    await DB.tripUpdate(CURRENT_TRIP.code, { members: updated });
+    CURRENT_TRIP.members = updated;
+  }catch(e){ console.error(e); }
+}
+
+async function stopLocationSharing(){
+  if(LOCATION_WATCH_ID != null){
+    navigator.geolocation.clearWatch(LOCATION_WATCH_ID);
+    LOCATION_WATCH_ID = null;
+  }
+  localStorage.removeItem(locShareKey());
+  const toggle = document.getElementById('locshare-toggle');
+  if(toggle) toggle.classList.remove('on');
+  if(CURRENT_TRIP && CURRENT_TRIP.members){
+    const updated = CURRENT_TRIP.members.map(m => {
+      if(m.id !== USER.uid) return m;
+      const copy = { ...m };
+      delete copy.loc;
+      return copy;
+    });
+    try{
+      await DB.tripUpdate(CURRENT_TRIP.code, { members: updated });
+      CURRENT_TRIP.members = updated;
+    }catch(e){ console.error(e); }
+  }
+  toast('위치 공유를 껐어요');
+}
+
+let FINDGROUP_MAP = null;
+let FINDGROUP_MARKERS = [];
+let FINDGROUP_POLL = null;
+
+function timeAgoMs(ms){
+  const diff = Math.floor((Date.now() - ms) / 1000);
+  if(diff < 60) return '방금';
+  if(diff < 3600) return Math.floor(diff/60) + '분 전';
+  return Math.floor(diff/3600) + '시간 전';
+}
+
+async function openFindGroup(){
+  document.getElementById('sheet-findgroup').classList.add('open');
+  await refreshFindGroup(true);
+  if(FINDGROUP_POLL) clearInterval(FINDGROUP_POLL);
+  FINDGROUP_POLL = setInterval(()=> refreshFindGroup(false), 25000);
+}
+
+async function refreshFindGroup(initial){
+  const loadingEl = document.getElementById('findgroup-loading');
+  if(initial && loadingEl) loadingEl.style.display = 'flex';
+  try{
+    const data = await DB.tripGet(CURRENT_TRIP.code);
+    const members = (data && data.members) || [];
+    CURRENT_TRIP.members = members;
+    const withLoc = members.filter(m => m.loc && m.loc.lat != null);
+
+    const listEl = document.getElementById('findgroup-list');
+    const emptyEl = document.getElementById('findgroup-empty');
+    if(withLoc.length === 0){
+      listEl.innerHTML = '';
+      if(emptyEl) emptyEl.style.display = 'block';
+    } else {
+      if(emptyEl) emptyEl.style.display = 'none';
+      listEl.innerHTML = withLoc.map(m => `
+        <div class="findgroup-row">
+          <div class="findgroup-dot"></div>
+          <div class="findgroup-name">${esc(m.name)}${m.id===USER.uid ? ' (나)' : ''}</div>
+          <div class="findgroup-time">${timeAgoMs(m.loc.updatedAt)}</div>
+        </div>
+      `).join('');
+    }
+
+    if(withLoc.length > 0){
+      if(!FINDGROUP_MAP){
+        const container = document.getElementById('findgroup-leaflet');
+        container.innerHTML = '';
+        FINDGROUP_MAP = L.map(container, { zoomControl:true, attributionControl:true });
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          maxZoom:19, attribution:'&copy; OpenStreetMap'
+        }).addTo(FINDGROUP_MAP);
+      }
+      FINDGROUP_MARKERS.forEach(m => FINDGROUP_MAP.removeLayer(m));
+      FINDGROUP_MARKERS = withLoc.map(m=>{
+        const icon = L.divIcon({
+          className:'',
+          html: `<div class="findgroup-pin"><span>${esc(m.name.slice(0,2))}</span></div>`,
+          iconSize:[34,34], iconAnchor:[17,34]
+        });
+        const marker = L.marker([m.loc.lat, m.loc.lng], { icon }).addTo(FINDGROUP_MAP);
+        marker.bindTooltip(esc(m.name) + (m.id===USER.uid?' (나)':''), { direction:'top', offset:[0,-30] });
+        return marker;
+      });
+      const bounds = L.latLngBounds(withLoc.map(m=>[m.loc.lat, m.loc.lng]));
+      FINDGROUP_MAP.fitBounds(bounds, { padding:[50,50], maxZoom:16 });
+      setTimeout(()=>{ if(FINDGROUP_MAP) FINDGROUP_MAP.invalidateSize(); }, 100);
+    }
+  }catch(e){ console.error(e); }
+  if(loadingEl) loadingEl.style.display = 'none';
+}
+
+function closeFindGroup(){
+  closeSheet('sheet-findgroup');
+  if(FINDGROUP_POLL){ clearInterval(FINDGROUP_POLL); FINDGROUP_POLL = null; }
+  if(FINDGROUP_MAP){ FINDGROUP_MAP.remove(); FINDGROUP_MAP = null; }
+  FINDGROUP_MARKERS = [];
 }
 
 function openMemberManage(){
