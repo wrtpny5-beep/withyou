@@ -556,7 +556,7 @@
           <div class="forecast-dropdown" id="forecast-dropdown"></div>
         </div>
         <div style="display:flex; gap:8px; margin-left:auto;">
-          <button class="glass-pill" onclick="openSettings()" title="설정">설정</button>
+          <button class="glass-pill" onclick="openSettings()" title="메뉴">메뉴</button>
           <button class="glass-pill" onclick="switchTripScreen()" title="여행 바꾸기">전환</button>
         </div>
       </div>
@@ -829,6 +829,11 @@
       <h2>멤버 관리</h2>
       <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">같은 사람이 실수로 중복 등록됐다면 지워주세요. 본인이 로그인 중인 멤버는 지울 수 없어요.</p>
       <div id="member-manage-body"></div>
+      <label class="field-label" style="margin-top:16px;">새 멤버 추가</label>
+      <div class="row-gap">
+        <input type="text" id="new-member-name" placeholder="이름">
+        <button class="btn btn-outline" style="margin-top:8px;" onclick="addMemberFromManage()">추가하기</button>
+      </div>
     </div>
   </div>
 
@@ -2946,6 +2951,23 @@ async function deleteMember(memberId){
   }catch(e){
     console.error(e);
     toast('삭제에 실패했어요');
+  }
+}
+async function addMemberFromManage(){
+  const input = document.getElementById('new-member-name');
+  const name = input.value.trim();
+  if(!name){ toast('이름을 입력해주세요'); return; }
+  const newMember = buildMember(name);
+  const updated = [...(CURRENT_TRIP.members||[]), newMember];
+  try{
+    await DB.tripUpdate(CURRENT_TRIP.code, { members: updated });
+    CURRENT_TRIP.members = updated;
+    input.value = '';
+    renderMemberManage();
+    toast(`"${name}" 멤버를 추가했어요 (코드: ${newMember.code})`);
+  }catch(e){
+    console.error(e);
+    toast('추가에 실패했어요');
   }
 }
 
