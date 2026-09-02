@@ -367,7 +367,8 @@
   }
   .daymap-header{padding:16px 20px 12px; flex:0 0 auto; position:relative;}
   .daymap-header .sheet-handle{margin:0 auto 14px;}
-  #daymap-container{flex:1; position:relative; min-height:0; background:var(--paper-2);}
+  #daymap-container{flex:1; position:relative; min-height:0; background:var(--paper-2); overflow:hidden;}
+  .daymap-sheet .close-x{z-index:600;}
   #pinpicker-leaflet{width:100%; height:100%;}
   .daymap-footer{
     flex:0 0 auto; padding:14px 20px calc(16px + var(--safe-bottom));
@@ -2146,6 +2147,7 @@ async function openRouteOverview(){
   const spots = ROUTE_SELECTION.map(id => SPOTS.find(x=>x.id===id)).filter(Boolean);
   DAYMAP.pointer = 0;
   DAYMAP.mode = ROUTE_MODE;
+  closeSheet('sheet-route');
   document.getElementById('sheet-routemap').classList.add('open');
   const loadingEl = document.getElementById('daymap-loading');
   loadingEl.style.display = 'flex';
