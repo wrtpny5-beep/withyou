@@ -5,6 +5,9 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover">
 <title>with you</title>
 <meta name="theme-color" content="#3A3B3D">
+<link rel="icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjM0EzQjNEIi8+PHRleHQgeD0iNTAiIHk9IjY2IiBmb250LXNpemU9IjU2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7wn6u2PC90ZXh0Pjwvc3ZnPg==">
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjM0EzQjNEIi8+PHRleHQgeD0iNTAiIHk9IjY2IiBmb250LXNpemU9IjU2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7wn6u2PC90ZXh0Pjwvc3ZnPg==">
+<link rel="manifest" href="data:application/manifest+json,%7B%22name%22%3A%20%22with%20you%22%2C%20%22short_name%22%3A%20%22with%20you%22%2C%20%22start_url%22%3A%20%22.%22%2C%20%22display%22%3A%20%22standalone%22%2C%20%22background_color%22%3A%20%22%233A3B3D%22%2C%20%22theme_color%22%3A%20%22%233A3B3D%22%2C%20%22icons%22%3A%20%5B%7B%22src%22%3A%20%22data%3Aimage/svg%2Bxml%3Bbase64%2CPHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSIjM0EzQjNEIi8%2BPHRleHQgeD0iNTAiIHk9IjY2IiBmb250LXNpemU9IjU2IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7wn6u2PC90ZXh0Pjwvc3ZnPg%3D%3D%22%2C%20%22sizes%22%3A%20%22100x100%22%2C%20%22type%22%3A%20%22image/svg%2Bxml%22%2C%20%22purpose%22%3A%20%22any%22%7D%5D%7D">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800;900&display=swap" rel="stylesheet">
@@ -259,10 +262,10 @@
     box-shadow:0 8px 20px rgba(74,62,66,0.4); z-index:30;
   }
   .fab-findgroup{
-    position:fixed; bottom:calc(90px + var(--safe-bottom)); right:20px;
+    position:fixed; bottom:calc(92px + var(--safe-bottom)); right:20px;
     width:56px; height:56px; border-radius:50%; background:var(--ink); color:var(--amber);
-    display:none; flex-direction:column; align-items:center; justify-content:center;
-    font-size:11.5px; font-weight:800; line-height:1.3; border:none; cursor:pointer;
+    display:none; align-items:center; justify-content:center; padding:0; margin:0;
+    font-size:13px; font-weight:800; line-height:1; border:none; cursor:pointer;
     box-shadow:0 8px 20px rgba(74,62,66,0.4); z-index:30; font-family:var(--font-body);
   }
 
@@ -592,7 +595,7 @@
 
     <main id="spot-list"></main>
 
-    <button class="fab-findgroup" id="fab-findgroup" onclick="openFindGroup()" title="일행 찾기">일행<br>찾기</button>
+    <button class="fab-findgroup" id="fab-findgroup" onclick="openFindGroup()" title="일행 찾기">일행</button>
     <button class="fab" onclick="openAddSpot()">＋</button>
   </div>
 
