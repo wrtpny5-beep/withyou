@@ -2799,7 +2799,7 @@ function startLocationSharing(silent){
       localStorage.removeItem(locShareKey());
       LOCATION_WATCH_ID = null;
     },
-    { enableHighAccuracy:false, maximumAge:15000, timeout:15000 }
+    { enableHighAccuracy:true, maximumAge:10000, timeout:20000 }
   );
 }
 
