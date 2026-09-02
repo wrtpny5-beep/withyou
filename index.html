@@ -642,15 +642,13 @@
       <button class="close-x" onclick="closeSheet('sheet-route')">✕</button>
       <div class="sheet-handle"></div>
       <h2>동선 만들기</h2>
-      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">들를 곳을 체크한 다음, "추천 순서로 정렬"을 누르면 효율적인 동선을 계산해줘요. 그 후 화살표로 순서를 직접 조정할 수 있어요.</p>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">들를 곳을 원하는 순서대로 체크하면 그 순서로 번호가 매겨져요. 아래 화살표로 순서를 언제든 다시 조정할 수 있어요.</p>
 
-      <label class="field-label">1. 들를 곳 선택</label>
+      <label class="field-label">들를 곳 선택 (탭한 순서대로 번호가 붙어요)</label>
       <div id="route-spot-list" style="margin-bottom:14px;"></div>
 
-      <button class="btn btn-outline" id="route-optimize-btn" onclick="optimizeRouteOrder()">추천 순서로 정렬</button>
-
       <div id="route-order-section" style="display:none; margin-top:18px;">
-        <label class="field-label">2. 순서 확인 · 조정 (화살표로 이동)</label>
+        <label class="field-label">순서 확인 · 조정 (화살표로 이동)</label>
         <div id="route-order-list"></div>
       </div>
 
@@ -796,6 +794,15 @@
       여행을 새로 만들어서 다시 세팅해주세요.)
    ======================================================================= */
 const USE_FIREBASE = true; // ← Firebase 연결 완료
+
+/* -------------------------------------------------------------------------
+   구글 지오코딩 프록시 (선택 사항)
+   -------------------------------------------------------------------------
+   /mnt/user-data/outputs/geocode-worker.js 를 Cloudflare Workers에 배포하고
+   나온 주소를 아래에 붙여넣으면, "동선 만들기" 순서 추천이 구글 수준
+   정확도로 동작해요. 비워두면 위키백과/Open-Meteo만 사용해요 (정확도 낮음).
+------------------------------------------------------------------------- */
+const GEOCODE_PROXY_URL = ''; // 예: 'https://your-worker.yourname.workers.dev'
 
 const firebaseConfig = {
   apiKey: "AIzaSyDTEqZyVIlXTD3R2ShnnZ2R5t4hIGK4co4",
@@ -1254,6 +1261,15 @@ async function geocodeViaWikipedia(city){
   };
   return (await tryLang('ko')) || (await tryLang('en'));
 }
+async function geocodeViaGoogleProxy(query){
+  if(!GEOCODE_PROXY_URL) return null;
+  try{
+    const res = await fetch(`${GEOCODE_PROXY_URL}?q=${encodeURIComponent(query)}`);
+    if(!res.ok) return null;
+    const data = await res.json();
+    return (data && data.lat != null && data.lng != null) ? { lat: data.lat, lng: data.lng } : null;
+  }catch(e){ return null; }
+}
 async function geocodeViaNominatim(query){
   try{
     const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
@@ -1264,7 +1280,11 @@ async function geocodeViaNominatim(query){
   }catch(e){ return null; }
 }
 async function geocodeCity(city){
-  // Nominatim(OSM)이 실제 매장/가게 단위 데이터를 갖고 있어서 우선 시도
+  // 구글 지오코딩 프록시가 설정돼 있으면 최우선 (가장 정확함)
+  const viaGoogle = await geocodeViaGoogleProxy(city);
+  if(viaGoogle) return viaGoogle;
+
+  // Nominatim(OSM)이 실제 매장/가게 단위 데이터를 갖고 있어서 다음 순서
   const viaNominatim = await geocodeViaNominatim(city);
   if(viaNominatim) return viaNominatim;
 
