@@ -118,7 +118,7 @@
   }
   header.topbar > *{ position:relative; z-index:1; }
 
-  .hero-actions{display:flex; justify-content:flex-end; gap:8px;}
+  .hero-actions{display:flex; justify-content:flex-end; gap:8px; position:relative; z-index:5;}
   .glass-pill{
     height:34px; padding:0 14px; border-radius:999px; border:1px solid rgba(255,255,255,0.4);
     background:rgba(255,255,255,0.18); backdrop-filter:blur(10px); -webkit-backdrop-filter:blur(10px);
@@ -553,7 +553,6 @@
         <div style="display:flex; gap:8px; margin-left:auto;">
           <button class="glass-pill" onclick="openSettings()" title="설정">설정</button>
           <button class="glass-pill" onclick="switchTripScreen()" title="여행 바꾸기">전환</button>
-          <button class="glass-pill" onclick="shareTrip()" title="공유">공유</button>
         </div>
       </div>
       <div class="trip-tag-card" onclick="openSettings()">
@@ -591,7 +590,7 @@
 
     <main id="spot-list"></main>
 
-    <button class="fab-findgroup" id="fab-findgroup" onclick="openFindGroup()" title="일행 찾기">📯</button>
+    <button class="fab-findgroup" id="fab-findgroup" onclick="openFindGroup()" title="일행 찾기">👥</button>
     <button class="fab" onclick="openAddSpot()">＋</button>
   </div>
 
@@ -1476,12 +1475,6 @@ function weatherIconFor(code){
   return WEATHER_ICON_CLOUD;
 }
 
-function tripForecastDays(){
-  let maxDay = 0;
-  SPOTS.forEach(s=>{ if(s.day && s.day > maxDay) maxDay = s.day; });
-  return Math.min(14, Math.max(5, maxDay || 5));
-}
-
 async function toggleForecastDropdown(){
   const dd = document.getElementById('forecast-dropdown');
   const isOpen = dd.classList.contains('open');
@@ -1491,11 +1484,10 @@ async function toggleForecastDropdown(){
   if(!FORECAST_CACHE){
     dd.innerHTML = `<div style="padding:10px; font-size:12.5px; color:var(--slate); text-align:center;">불러오는 중...</div>`;
     try{
-      const days = tripForecastDays();
-      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${CURRENT_WEATHER_LOC.lat}&longitude=${CURRENT_WEATHER_LOC.lng}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=${days}`);
+      const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${CURRENT_WEATHER_LOC.lat}&longitude=${CURRENT_WEATHER_LOC.lng}&hourly=weathercode,temperature_2m&timezone=auto&forecast_hours=6`);
       if(!res.ok) throw new Error('forecast fetch failed');
       const data = await res.json();
-      FORECAST_CACHE = data.daily;
+      FORECAST_CACHE = data.hourly;
     }catch(e){
       console.error(e);
       dd.innerHTML = `<div style="padding:10px; font-size:12.5px; color:var(--slate); text-align:center;">예보를 불러오지 못했어요</div>`;
@@ -1508,17 +1500,17 @@ async function toggleForecastDropdown(){
 function renderForecastDropdown(){
   const dd = document.getElementById('forecast-dropdown');
   if(!FORECAST_CACHE){ return; }
-  const { time, weathercode, temperature_2m_max, temperature_2m_min } = FORECAST_CACHE;
-  dd.innerHTML = time.map((dateStr, i)=>{
-    const d = new Date(dateStr + 'T00:00:00');
-    const label = `${d.getMonth()+1}/${d.getDate()}`;
+  const { time, weathercode, temperature_2m } = FORECAST_CACHE;
+  dd.innerHTML = time.map((isoStr, i)=>{
+    const d = new Date(isoStr);
+    const label = i === 0 ? '지금' : `${d.getHours()}시`;
     const code = weathercode[i];
     return `
     <div class="forecast-row">
       <div class="forecast-day">${label}</div>
       <div class="forecast-icon">${weatherIconFor(code)}</div>
       <div class="forecast-label">${esc(WEATHER_CODE_LABEL[code] || '')}</div>
-      <div class="forecast-temp">${Math.round(temperature_2m_max[i])}° / ${Math.round(temperature_2m_min[i])}°</div>
+      <div class="forecast-temp">${Math.round(temperature_2m[i])}°</div>
     </div>`;
   }).join('');
 }
