@@ -345,6 +345,7 @@
   .findgroup-row:not(:last-child){border-bottom:1px solid var(--line);}
   .findgroup-dot{width:10px; height:10px; border-radius:50%; background:var(--stamp-green); flex:0 0 auto;}
   .findgroup-name{flex:1; min-width:0; font-size:14px; font-weight:600; color:var(--ink);}
+  .findgroup-place{font-size:11.5px; font-weight:500; color:var(--slate); margin-top:2px;}
   .findgroup-time{flex:0 0 auto; font-size:12px; color:var(--slate);}
 
   /* ---------- Photo sharing ---------- */
@@ -1472,6 +1473,20 @@ async function geocodeViaGoogleProxy(query){
     return (data && data.lat != null && data.lng != null) ? { lat: data.lat, lng: data.lng } : null;
   }catch(e){ return null; }
 }
+const REVERSE_GEOCODE_CACHE = {}; // "lat.toFixed(4),lng.toFixed(4)" -> 장소명 (같은 좌표 반복 호출 방지)
+async function reverseGeocode(lat, lng){
+  if(!GEOCODE_PROXY_URL) return null;
+  const key = lat.toFixed(4) + ',' + lng.toFixed(4);
+  if(REVERSE_GEOCODE_CACHE[key] !== undefined) return REVERSE_GEOCODE_CACHE[key];
+  try{
+    const res = await fetch(`${GEOCODE_PROXY_URL}?latlng=${lat},${lng}`);
+    if(!res.ok){ REVERSE_GEOCODE_CACHE[key] = null; return null; }
+    const data = await res.json();
+    const name = data && data.name ? data.name : null;
+    REVERSE_GEOCODE_CACHE[key] = name;
+    return name;
+  }catch(e){ REVERSE_GEOCODE_CACHE[key] = null; return null; }
+}
 async function geocodeViaNominatim(query){
   try{
     const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=1`);
@@ -2251,8 +2266,11 @@ function updateRouteNote(){
     const s = SPOTS.find(x=>x.id===id);
     return s && s.isDomestic;
   });
+  const hasWaypoints = ROUTE_SELECTION.length > 2;
   if(ROUTE_MODE === 'driving' && hasDomestic){
     note.textContent = '국내 스팟이 포함된 자동차 경로는 구글맵에서 부정확할 수 있어요. 도보나 대중교통을 추천해요.';
+  } else if(hasWaypoints && ROUTE_MODE !== 'driving'){
+    note.textContent = '3곳 이상 들르는 경로는 구글맵 특성상 "자동차" 모드에서만 전체 경로가 정확히 나와요. 도보/대중교통은 첫 곳→마지막 곳만 표시돼요.';
   } else {
     note.textContent = '위 순서 목록의 맨 위 → 맨 아래 순서 그대로 구글맵 경로가 열려요.';
   }
@@ -2264,6 +2282,21 @@ function openRouteNav(){
   const origin = encodeURIComponent(spots[0].address || spots[0].name);
   const destination = encodeURIComponent(spots[spots.length-1].address || spots[spots.length-1].name);
   const waypoints = spots.slice(1, -1).map(s => encodeURIComponent(s.address || s.name)).join('|');
+
+  if(waypoints && ROUTE_MODE !== 'driving'){
+    const proceed = confirm(
+      '대중교통/도보는 구글맵이 중간 경유지를 지원하지 않아요 (구글 자체 제약이에요).\n' +
+      '"자동차"로 바꾸면 전체 동선이 정확히 나와요.\n\n' +
+      '그래도 지금 모드로 열까요? (경유지 없이 첫 곳 → 마지막 곳만 보여요)'
+    );
+    if(!proceed) return;
+    // 경유지를 포함하면 구글이 오히려 이상하게 잘라서 보여주므로, 이 모드에서는 경유지 없이 첫→마지막만 요청
+    const url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${ROUTE_MODE}`;
+    window.open(url, '_blank');
+    closeSheet('sheet-route');
+    return;
+  }
+
   let url = `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&travelmode=${ROUTE_MODE}`;
   if(waypoints) url += `&waypoints=${waypoints}`;
   window.open(url, '_blank');
@@ -2948,6 +2981,14 @@ async function refreshFindGroup(initial){
     CURRENT_TRIP.members = members;
     const withLoc = members.filter(m => m.loc && m.loc.lat != null);
 
+    // 좌표 → 근처 장소명(건물/상호) 역지오코딩 (프록시 설정된 경우만)
+    const placeNames = {};
+    if(GEOCODE_PROXY_URL && withLoc.length > 0){
+      await Promise.all(withLoc.map(async (m)=>{
+        placeNames[m.id] = await reverseGeocode(m.loc.lat, m.loc.lng);
+      }));
+    }
+
     const listEl = document.getElementById('findgroup-list');
     const emptyEl = document.getElementById('findgroup-empty');
     if(withLoc.length === 0){
@@ -2958,7 +2999,10 @@ async function refreshFindGroup(initial){
       listEl.innerHTML = withLoc.map(m => `
         <div class="findgroup-row">
           <div class="findgroup-dot"></div>
-          <div class="findgroup-name">${esc(m.name)}${m.id===USER.uid ? ' (나)' : ''}</div>
+          <div class="findgroup-name">
+            ${esc(m.name)}${m.id===USER.uid ? ' (나)' : ''}
+            ${placeNames[m.id] ? `<div class="findgroup-place">${esc(placeNames[m.id])}</div>` : ''}
+          </div>
           <div class="findgroup-time">${timeAgoMs(m.loc.updatedAt)}</div>
         </div>
       `).join('');
@@ -2981,7 +3025,8 @@ async function refreshFindGroup(initial){
           iconSize:[34,34], iconAnchor:[17,34]
         });
         const marker = L.marker([m.loc.lat, m.loc.lng], { icon }).addTo(FINDGROUP_MAP);
-        marker.bindTooltip(esc(m.name) + (m.id===USER.uid?' (나)':''), { direction:'top', offset:[0,-30] });
+        const label = esc(m.name) + (m.id===USER.uid?' (나)':'') + (placeNames[m.id] ? '<br><span style="font-weight:400;">' + esc(placeNames[m.id]) + '</span>' : '');
+        marker.bindTooltip(label, { direction:'top', offset:[0,-30] });
         return marker;
       });
       const bounds = L.latLngBounds(withLoc.map(m=>[m.loc.lat, m.loc.lng]));
