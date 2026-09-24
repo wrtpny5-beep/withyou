@@ -218,6 +218,8 @@
   .spot-info{flex:1; min-width:0;}
   .spot-name{font-family:var(--font-display); font-size:18px; font-weight:700; margin:0 0 4px; display:flex; align-items:center; gap:6px; flex-wrap:wrap;}
   .spot-name .visited-tag{font-size:11.5px; font-family:var(--font-body); font-weight:700; background:var(--stamp-green); color:var(--ink); padding:3px 8px; border-radius:6px; letter-spacing:.02em;}
+  .spot-link-btn{display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; color:var(--slate); flex:0 0 auto;}
+  .spot-link-btn svg{width:100%; height:100%;}
   .spot-meta{font-size:13.5px; color:var(--slate); font-weight:500;}
   .spot-memo{font-size:15.5px; color:var(--ink-soft); line-height:1.65; padding:0 16px 12px; white-space:pre-wrap;}
 
@@ -701,6 +703,9 @@
 
       <label class="field-label">며칠째 일정인가요? (선택, 일정 보기에 쓰여요)</label>
       <input type="text" inputmode="numeric" id="new-spot-day" placeholder="숫자만 입력 (비워두면 미배정)" style="margin-bottom:14px;">
+
+      <label class="field-label">참고 링크 (선택 — 블로그, 소개 페이지 등)</label>
+      <input type="url" id="new-spot-link" placeholder="https://..." style="margin-bottom:14px;">
 
       <label class="field-label">메모 (선택)</label>
       <textarea id="new-spot-memo" rows="3" placeholder="가고 싶은 이유, 참고 정보 등"></textarea>
@@ -1932,7 +1937,7 @@ function spotCardHtml(s){
   <div class="spot-card ${s.visited?'visited':''}">
     <div class="spot-top">
       <div class="spot-info">
-        <div class="spot-name">${esc(s.name)} ${s.visited?'<span class="visited-tag">다녀옴</span>':''}</div>
+        <div class="spot-name">${esc(s.name)} ${s.link ? `<a href="${esc(s.link)}" target="_blank" rel="noopener" class="spot-link-btn" onclick="event.stopPropagation()" title="참고 링크 열기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1.5 1.5"/><path d="M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1.5-1.5"/></svg></a>` : ''} ${s.visited?'<span class="visited-tag">다녀옴</span>':''}</div>
         <div class="spot-meta">${s.day ? `Day ${s.day} · ` : ''}${esc(s.category)} · ${s.isDomestic?'국내':'해외'} · ${esc(s.addedBy||'')}</div>
       </div>
     </div>
@@ -2780,6 +2785,7 @@ function resetSpotForm(){
   document.getElementById('new-spot-address').value = '';
   document.getElementById('new-spot-memo').value = '';
   document.getElementById('new-spot-day').value = '';
+  document.getElementById('new-spot-link').value = '';
   SELECTED_CAT = '관광';
   document.querySelectorAll('#cat-grid .cat-opt').forEach(o=> o.classList.toggle('active', o.dataset.cat===SELECTED_CAT));
   setRegionToggle(true);
@@ -2805,6 +2811,7 @@ function openEditSpot(spotId){
   document.getElementById('new-spot-address').value = s.address || '';
   document.getElementById('new-spot-memo').value = s.memo || '';
   document.getElementById('new-spot-day').value = s.day || '';
+  document.getElementById('new-spot-link').value = s.link || '';
   SELECTED_CAT = s.category || '관광';
   document.querySelectorAll('#cat-grid .cat-opt').forEach(o=> o.classList.toggle('active', o.dataset.cat===SELECTED_CAT));
   setRegionToggle(!!s.isDomestic);
@@ -2927,6 +2934,8 @@ async function submitNewSpot(){
   const memo = document.getElementById('new-spot-memo').value.trim();
   const dayRaw = document.getElementById('new-spot-day').value.trim();
   const day = dayRaw ? Math.max(1, parseInt(dayRaw, 10) || 0) || null : null;
+  let link = document.getElementById('new-spot-link').value.trim();
+  if(link && !/^https?:\/\//i.test(link)) link = 'https://' + link;
   if(!name){ toast('이름을 입력해주세요'); return; }
 
   try{
@@ -2935,7 +2944,7 @@ async function submitNewSpot(){
       const existing = SPOTS.find(s => s.id === EDITING_SPOT_ID);
       const addressChanged = existing && existing.address !== finalAddress;
       const patch = {
-        name, address: finalAddress, memo, day,
+        name, address: finalAddress, memo, day, link,
         category: SELECTED_CAT, isDomestic: SELECTED_DOMESTIC
       };
       if(PIN_PICKER_LATLNG){
@@ -2950,13 +2959,14 @@ async function submitNewSpot(){
       await DB.updateSpot(CURRENT_TRIP.code, EDITING_SPOT_ID, patch);
       if(existing){
         existing.address = finalAddress;
+        existing.link = link;
         if(patch.lat !== undefined) existing.lat = patch.lat;
         if(patch.lng !== undefined) existing.lng = patch.lng;
       }
       toast('스팟을 수정했어요');
     } else {
       const newSpotData = {
-        name, address: address || name, memo, day,
+        name, address: address || name, memo, day, link,
         category: SELECTED_CAT, isDomestic: SELECTED_DOMESTIC,
         votes: {}, visited: false, commentCount: 0,
         addedBy: USER.nickname
