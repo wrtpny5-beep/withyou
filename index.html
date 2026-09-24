@@ -245,11 +245,15 @@
 
   .comments-panel{display:none; padding:2px 16px 16px; border-top:1px solid var(--line); background:var(--paper-2);}
   .comments-panel.open{display:block;}
-  .comment-item{padding:11px 0; border-bottom:1px solid var(--line);}
+  .comment-item{position:relative; padding:11px 0; border-bottom:1px solid var(--line);}
   .comment-item:last-child{border-bottom:none;}
   .comment-item .author{font-size:13.5px; font-weight:700; color:var(--ink);}
-  .comment-item .text{font-size:15px; color:var(--ink-soft); margin-top:3px; line-height:1.6;}
+  .comment-item .text{font-size:15px; color:var(--ink-soft); margin-top:3px; line-height:1.6; padding-right:44px;}
   .comment-item .time{font-size:12px; color:var(--slate); margin-top:4px;}
+  .comment-delete-btn{
+    position:absolute; top:11px; right:0; background:none; border:none; color:var(--stamp-red);
+    font-size:12px; font-weight:600; cursor:pointer; padding:2px 4px;
+  }
   .comment-input-row{display:flex; gap:8px; margin-top:12px;}
   .comment-input-row input{flex:1; min-height:46px;}
   .comment-input-row button{flex:0 0 auto; background:var(--ink); color:#fff; border:none; border-radius:10px; padding:0 18px; font-size:14.5px; font-weight:700; min-height:46px;}
@@ -1105,6 +1109,13 @@ const LocalAdapter = {
     Object.assign(trips[code], patch);
     lsSet(LS_KEYS.trips, trips);
   },
+  async arrayAdd(code, field, item){
+    const trips = lsGet(LS_KEYS.trips);
+    if(!trips[code]) return;
+    if(!Array.isArray(trips[code][field])) trips[code][field] = [];
+    trips[code][field].push(item);
+    lsSet(LS_KEYS.trips, trips);
+  },
   async deleteTrip(code){
     const trips = lsGet(LS_KEYS.trips); delete trips[code]; lsSet(LS_KEYS.trips, trips);
     const spots = lsGet(LS_KEYS.spots); delete spots[code]; lsSet(LS_KEYS.spots, spots);
@@ -1163,12 +1174,23 @@ const LocalAdapter = {
     all[tripCode] = all[tripCode] || {};
     all[tripCode][spotId] = all[tripCode][spotId] || {};
     const id = 'c_' + uid(10);
-    all[tripCode][spotId][id] = { ...data, createdAt: Date.now() };
+    all[tripCode][spotId][id] = { id, ...data, createdAt: Date.now() };
     lsSet(LS_KEYS.comments, all);
     notifyLocalComments(tripCode, spotId);
     await LocalAdapter.updateSpot(tripCode, spotId, {
       commentCount: Object.keys(all[tripCode][spotId]).length
     });
+  },
+  async deleteComment(tripCode, spotId, commentId){
+    const all = lsGet(LS_KEYS.comments);
+    if(all[tripCode] && all[tripCode][spotId]){
+      delete all[tripCode][spotId][commentId];
+      lsSet(LS_KEYS.comments, all);
+      notifyLocalComments(tripCode, spotId);
+      await LocalAdapter.updateSpot(tripCode, spotId, {
+        commentCount: Object.keys(all[tripCode][spotId]).length
+      });
+    }
   },
   async setSurvey(tripCode, respUid, data){
     const all = lsGet(LS_KEYS.survey);
@@ -1202,6 +1224,11 @@ const FirebaseAdapter = {
   async tripUpdate(code, patch){
     await db.collection('trips').doc(code).update(patch);
   },
+  async arrayAdd(code, field, item){
+    await db.collection('trips').doc(code).update({
+      [field]: firebase.firestore.FieldValue.arrayUnion(item)
+    });
+  },
   async deleteTrip(code){
     const tripRef = db.collection('trips').doc(code);
     const spotsSnap = await tripRef.collection('spots').get();
@@ -1231,12 +1258,17 @@ const FirebaseAdapter = {
   subscribeComments(tripCode, spotId, cb){
     return db.collection('trips').doc(tripCode).collection('spots').doc(spotId).collection('comments')
       .orderBy('createdAt','asc')
-      .onSnapshot(snap => cb(snap.docs.map(d => d.data())));
+      .onSnapshot(snap => cb(snap.docs.map(d => ({ id: d.id, ...d.data() }))));
   },
   async addComment(tripCode, spotId, data){
     const spotRef = db.collection('trips').doc(tripCode).collection('spots').doc(spotId);
     await spotRef.collection('comments').add({ ...data, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
     await spotRef.update({ commentCount: firebase.firestore.FieldValue.increment(1) });
+  },
+  async deleteComment(tripCode, spotId, commentId){
+    const spotRef = db.collection('trips').doc(tripCode).collection('spots').doc(spotId);
+    await spotRef.collection('comments').doc(commentId).delete();
+    await spotRef.update({ commentCount: firebase.firestore.FieldValue.increment(-1) });
   },
   async setSurvey(tripCode, respUid, data){
     await db.collection('trips').doc(tripCode).collection('survey').doc(respUid)
@@ -2132,6 +2164,7 @@ function toggleComments(spotId){
             <div class="author">${esc(c.author)}</div>
             <div class="text">${esc(c.text)}</div>
             <div class="time">${timeAgo(c.createdAt)}</div>
+            ${c.authorUid===USER.uid ? `<button class="comment-delete-btn" onclick="deleteComment('${spotId}','${c.id}')">삭제</button>` : ''}
           </div>
         `).join('')}
         <div class="comment-input-row">
@@ -2150,9 +2183,19 @@ async function submitComment(spotId){
   const text = input.value.trim();
   if(!text) return;
   try{
-    await DB.addComment(CURRENT_TRIP.code, spotId, { author: USER.nickname, text });
+    await DB.addComment(CURRENT_TRIP.code, spotId, { author: USER.nickname, authorUid: USER.uid, text });
     input.value = '';
   }catch(e){ console.error(e); toast('댓글 등록에 실패했어요'); }
+}
+
+async function deleteComment(spotId, commentId){
+  if(!confirm('이 댓글을 삭제할까요?')) return;
+  try{
+    await DB.deleteComment(CURRENT_TRIP.code, spotId, commentId);
+  }catch(e){
+    console.error(e);
+    toast('댓글 삭제에 실패했어요');
+  }
 }
 
 /* ---------------- Navigation deep links ---------------- */
@@ -2332,13 +2375,8 @@ async function optimizeRouteOrder(){
       toast('좌표를 찾지 못해서 순서를 계산할 수 없어요');
       return;
     }
-    // 숙소가 있으면 그 지점을 경로 시작점으로 고정한 채 나머지만 최적화
-    let orderedUids;
-    if(lodgingFirst && points[0].uid === lodgingFirst.uid){
-      orderedUids = nearestNeighborOrder(points);
-    } else {
-      orderedUids = nearestNeighborOrder(points);
-    }
+    // points[0]이 숙소면 nearestNeighborOrder가 그 지점부터 시작해서 자연스럽게 숙소 출발이 유지돼요
+    const orderedUids = nearestNeighborOrder(points);
     const byUid = Object.fromEntries(ROUTE_SELECTION.map(ri=>[ri.uid, ri]));
     ROUTE_SELECTION = [...orderedUids.map(u=>byUid[u]), ...noCoord.map(u=>byUid[u])];
     renderRouteList();
@@ -2398,10 +2436,9 @@ async function saveCurrentRoute(){
     spotIds: ROUTE_SELECTION.map(ri=>ri.spotId), // 순서·중복 그대로 저장
     createdAt: Date.now()
   };
-  const updated = [...(CURRENT_TRIP.savedRoutes||[]), savedRoute];
   try{
-    await DB.tripUpdate(CURRENT_TRIP.code, { savedRoutes: updated });
-    CURRENT_TRIP.savedRoutes = updated;
+    await DB.arrayAdd(CURRENT_TRIP.code, 'savedRoutes', savedRoute);
+    CURRENT_TRIP.savedRoutes = [...(CURRENT_TRIP.savedRoutes||[]), savedRoute];
     renderSavedRoutes();
     toast('동선을 저장했어요');
   }catch(e){
@@ -3304,10 +3341,9 @@ async function addMemberFromManage(){
   const name = input.value.trim();
   if(!name){ toast('이름을 입력해주세요'); return; }
   const newMember = buildMember(name);
-  const updated = [...(CURRENT_TRIP.members||[]), newMember];
   try{
-    await DB.tripUpdate(CURRENT_TRIP.code, { members: updated });
-    CURRENT_TRIP.members = updated;
+    await DB.arrayAdd(CURRENT_TRIP.code, 'members', newMember);
+    CURRENT_TRIP.members = [...(CURRENT_TRIP.members||[]), newMember];
     input.value = '';
     renderMemberManage();
     toast(`"${name}" 멤버를 추가했어요 (코드: ${newMember.code})`);
@@ -3366,9 +3402,8 @@ async function handlePhotoSelected(event){
     const data = await res.json();
     if(!data.secure_url) throw new Error('no secure_url in response');
     const photo = { id:'p_'+uid(10), url: data.secure_url, uploadedBy: USER.nickname, uploadedByUid: USER.uid, uploadedAt: Date.now() };
-    const updated = [...(CURRENT_TRIP.photos||[]), photo];
-    await DB.tripUpdate(CURRENT_TRIP.code, { photos: updated });
-    CURRENT_TRIP.photos = updated;
+    await DB.arrayAdd(CURRENT_TRIP.code, 'photos', photo);
+    CURRENT_TRIP.photos = [...(CURRENT_TRIP.photos||[]), photo];
     renderPhotoGrid();
     toast('사진을 올렸어요');
   }catch(e){
@@ -3528,7 +3563,7 @@ async function handleDocSelected(event){
       uploadedAt: Date.now()
     };
     const updated = [...(CURRENT_TRIP.documents||[]), doc];
-    await DB.tripUpdate(CURRENT_TRIP.code, { documents: updated });
+    await DB.arrayAdd(CURRENT_TRIP.code, 'documents', doc);
     CURRENT_TRIP.documents = updated;
     document.getElementById('doc-title-input').value = '';
     renderDocList();
