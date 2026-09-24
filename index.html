@@ -420,8 +420,13 @@
   .route-row-info{flex:1; min-width:0;}
   .route-row-name{font-size:15px; font-weight:600; color:var(--ink);}
   .route-row-meta{font-size:12.5px; color:var(--slate); margin-top:2px;}
+  .route-row-count{
+    flex:0 0 auto; min-width:22px; height:22px; padding:0 6px; border-radius:999px; background:var(--amber);
+    color:var(--ink); font-size:11.5px; font-weight:800; display:flex; align-items:center; justify-content:center;
+  }
 
   .route-order-row{display:flex; align-items:center; gap:10px; padding:10px 12px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:8px; background:#fff;}
+  .route-order-row.is-lodging{border-color:var(--stamp-green);}
   .route-order-num{width:24px; height:24px; border-radius:50%; background:var(--amber); color:var(--ink); font-size:12px; font-weight:800; display:flex; align-items:center; justify-content:center; flex:0 0 auto;}
   .route-order-name{flex:1; min-width:0; font-size:14.5px; font-weight:600; color:var(--ink);}
   .route-order-arrows{display:flex; gap:4px; flex:0 0 auto;}
@@ -430,6 +435,11 @@
     color:var(--ink-soft); font-size:12px; cursor:pointer; display:flex; align-items:center; justify-content:center;
   }
   .route-arrow-btn:disabled{opacity:.3; cursor:default;}
+  .route-arrow-btn.remove{color:var(--stamp-red);}
+
+  .saved-route-row{display:flex; align-items:center; gap:10px; padding:10px 12px; border:1.5px solid var(--line); border-radius:12px; margin-bottom:8px; background:var(--paper-2);}
+  .saved-route-title{flex:1; min-width:0; font-size:14.5px; font-weight:700; color:var(--ink); cursor:pointer;}
+  .saved-route-meta{font-size:11.5px; color:var(--slate); margin-top:2px; font-weight:500;}
 
   /* ---------- Pin picker (shared sheet layout) ---------- */
   .daymap-sheet{
@@ -743,15 +753,21 @@
       <button class="close-x" onclick="closeSheet('sheet-route')">✕</button>
       <div class="sheet-handle"></div>
       <h2>동선 만들기</h2>
-      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">들를 곳을 체크한 다음 "추천 순서로 정렬"을 누르면 효율적인 동선을 계산해줘요. 그 후 화살표로 순서를 직접 조정할 수 있어요.</p>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">들를 곳을 탭할 때마다 순서에 추가돼요. 같은 곳(숙소 등)도 여러 번 탭해서 여러 번 넣을 수 있어요.</p>
 
-      <label class="field-label">들를 곳 선택 (탭한 순서대로 번호가 붙어요)</label>
+      <div id="saved-route-section" style="display:none; margin-bottom:16px;">
+        <label class="field-label">저장된 동선</label>
+        <div id="saved-route-list"></div>
+      </div>
+
+      <label class="field-label">들를 곳 선택</label>
       <div id="route-spot-list" style="margin-bottom:14px;"></div>
 
       <button class="btn btn-outline" id="route-optimize-btn" onclick="optimizeRouteOrder()">추천 순서로 정렬</button>
 
       <div id="route-order-section" style="display:none; margin-top:18px;">
-        <label class="field-label">순서 확인 · 조정 (화살표로 이동)</label>
+        <label class="field-label">순서 확인 · 조정</label>
+        <p id="route-lodging-warning" style="display:none; font-size:12.5px; color:var(--stamp-red); line-height:1.6; margin:0 0 8px;">시작이 숙소가 아니에요. 보통 숙소에서 출발하는 게 자연스러워요 — 아래에서 숙소를 맨 위로 옮기거나 다시 선택해보세요.</p>
         <div id="route-order-list"></div>
       </div>
 
@@ -764,8 +780,9 @@
       <p id="route-note" style="font-size:12.5px; color:var(--slate); line-height:1.6; margin:10px 0 4px;"></p>
 
       <button class="btn btn-outline" style="margin-top:8px;" onclick="clearRoute()">선택 초기화</button>
-      <button class="btn btn-outline" style="margin-top:10px;" onclick="openRouteOverview()">지도로 보기 (오버뷰)</button>
-      <button class="btn btn-primary" style="margin-top:10px;" onclick="openRouteNav()">경로 길찾기 열기</button>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="saveCurrentRoute()">이 동선 저장하기</button>
+      <button class="btn btn-outline" style="margin-top:10px;" onclick="openRouteOverview()">지도로 보기 (참고용 미리보기)</button>
+      <button class="btn btn-primary" style="margin-top:10px;" onclick="openRouteNav()">실제 길찾기 열기 (구글맵)</button>
     </div>
   </div>
 
@@ -1499,6 +1516,15 @@ async function geocodeViaNominatim(query){
     return r ? { lat: parseFloat(r.lat), lng: parseFloat(r.lon) } : null;
   }catch(e){ return null; }
 }
+async function getTripBiasLoc(){
+  if(CURRENT_WEATHER_LOC) return CURRENT_WEATHER_LOC;
+  if(CURRENT_TRIP && CURRENT_TRIP.city){
+    const loc = await geocodeCity(CURRENT_TRIP.city);
+    if(loc) CURRENT_WEATHER_LOC = loc;
+    return loc;
+  }
+  return null;
+}
 async function geocodeCity(city, bias){
   // 별도로 안 넘겨주면, 이미 찾아둔 이번 여행 도시 좌표를 기본 기준점으로 사용
   // (같은 상호명이 여러 나라에 있을 때 엉뚱한 나라로 안 잡히게 해줘요)
@@ -2119,14 +2145,19 @@ function openMapView(spotId){
 }
 
 /* ---------------- Route builder (여러 곳 한번에 길찾기) ---------------- */
-let ROUTE_SELECTION = []; // spot id 배열 — 선택 순서(추천 정렬 전) 또는 확정된 방문 순서
+let ROUTE_SELECTION = []; // { uid, spotId } 배열 — 같은 스팟(숙소 등)도 여러 번 담길 수 있어요
 let ROUTE_MODE = 'walking';
 
 function openRouteBuilder(){
   renderRouteList();
   renderRouteOrder();
+  renderSavedRoutes();
   updateRouteNote();
   document.getElementById('sheet-route').classList.add('open');
+}
+
+function routeSpotCount(spotId){
+  return ROUTE_SELECTION.filter(ri=>ri.spotId===spotId).length;
 }
 
 function renderRouteList(){
@@ -2136,22 +2167,28 @@ function renderRouteList(){
     return;
   }
   el.innerHTML = SPOTS.map(s=>{
-    const selected = ROUTE_SELECTION.includes(s.id);
+    const count = routeSpotCount(s.id);
     return `
-    <div class="route-row ${selected?'selected':''}" onclick="toggleRouteSpot('${s.id}')">
-      <div class="route-check">${selected ? '✓' : ''}</div>
+    <div class="route-row ${count>0?'selected':''}" onclick="addRouteSpot('${s.id}')">
+      <div class="route-check">${count>0 ? '✓' : ''}</div>
       <div class="route-row-info">
         <div class="route-row-name">${esc(s.name)}</div>
         <div class="route-row-meta">${esc(s.category)} · ${s.isDomestic?'국내':'해외'}</div>
       </div>
+      ${count>0 ? `<div class="route-row-count">×${count}</div>` : ''}
     </div>`;
   }).join('');
 }
 
-function toggleRouteSpot(spotId){
-  const idx = ROUTE_SELECTION.indexOf(spotId);
-  if(idx > -1) ROUTE_SELECTION.splice(idx, 1);
-  else ROUTE_SELECTION.push(spotId);
+function addRouteSpot(spotId){
+  ROUTE_SELECTION.push({ uid: 'ri_' + uid(6), spotId });
+  renderRouteList();
+  renderRouteOrder();
+  updateRouteNote();
+}
+
+function removeRouteItem(itemUid){
+  ROUTE_SELECTION = ROUTE_SELECTION.filter(ri=>ri.uid !== itemUid);
   renderRouteList();
   renderRouteOrder();
   updateRouteNote();
@@ -2165,19 +2202,31 @@ function renderRouteOrder(){
     return;
   }
   section.style.display = 'block';
-  list.innerHTML = ROUTE_SELECTION.map((id, i) => {
-    const s = SPOTS.find(x=>x.id===id);
+  list.innerHTML = ROUTE_SELECTION.map((item, i) => {
+    const s = SPOTS.find(x=>x.id===item.spotId);
     if(!s) return '';
+    const isLodging = s.category === '숙소';
     return `
-    <div class="route-order-row">
+    <div class="route-order-row ${isLodging?'is-lodging':''}">
       <div class="route-order-num">${i+1}</div>
-      <div class="route-order-name">${esc(s.name)}</div>
+      <div class="route-order-name">${esc(s.name)}${isLodging?' (숙소)':''}</div>
       <div class="route-order-arrows">
         <button class="route-arrow-btn" onclick="moveRouteItem(${i},-1)" ${i===0?'disabled':''}>▲</button>
         <button class="route-arrow-btn" onclick="moveRouteItem(${i},1)" ${i===ROUTE_SELECTION.length-1?'disabled':''}>▼</button>
+        <button class="route-arrow-btn remove" onclick="removeRouteItem('${item.uid}')">✕</button>
       </div>
     </div>`;
   }).join('');
+  updateLodgingWarning();
+}
+
+function updateLodgingWarning(){
+  const warn = document.getElementById('route-lodging-warning');
+  if(!warn) return;
+  if(ROUTE_SELECTION.length < 2){ warn.style.display = 'none'; return; }
+  const first = SPOTS.find(x=>x.id===ROUTE_SELECTION[0].spotId);
+  const startsAtLodging = first && first.category === '숙소';
+  warn.style.display = startsAtLodging ? 'none' : 'block';
 }
 
 function moveRouteItem(index, dir){
@@ -2206,7 +2255,7 @@ function nearestNeighborOrder(points){
     });
     path.push(remaining.splice(bestIdx,1)[0]);
   }
-  return path.map(p=>p.id);
+  return path.map(p=>p.uid);
 }
 
 async function optimizeRouteOrder(){
@@ -2217,27 +2266,43 @@ async function optimizeRouteOrder(){
   try{
     const points = [];
     const noCoord = [];
-    for(const id of ROUTE_SELECTION){
-      const s = SPOTS.find(x=>x.id===id);
+    const bias = await getTripBiasLoc();
+    // 숙소로 시작하는 항목이 있으면 그걸 고정 시작점으로 삼아요
+    const lodgingFirst = ROUTE_SELECTION.find(ri=>{
+      const s = SPOTS.find(x=>x.id===ri.spotId);
+      return s && s.category === '숙소';
+    });
+    const orderedInput = lodgingFirst
+      ? [lodgingFirst, ...ROUTE_SELECTION.filter(ri=>ri.uid!==lodgingFirst.uid)]
+      : ROUTE_SELECTION;
+    for(const item of orderedInput){
+      const s = SPOTS.find(x=>x.id===item.spotId);
       if(!s) continue;
       let lat = s.lat, lng = s.lng;
       if(lat == null || lng == null){
-        const loc = await geocodeCity(s.address || s.name);
+        const loc = await geocodeCity(s.address || s.name, bias);
         if(loc){
           lat = loc.lat; lng = loc.lng;
           s.lat = lat; s.lng = lng; // 로컬 캐시
           DB.updateSpot(CURRENT_TRIP.code, s.id, { lat, lng }).catch(()=>{});
         }
       }
-      if(lat != null && lng != null) points.push({ id, lat, lng });
-      else noCoord.push(id);
+      if(lat != null && lng != null) points.push({ uid: item.uid, lat, lng });
+      else noCoord.push(item.uid);
     }
     if(points.length < 2){
       toast('좌표를 찾지 못해서 순서를 계산할 수 없어요');
       return;
     }
-    const ordered = nearestNeighborOrder(points);
-    ROUTE_SELECTION = [...ordered, ...noCoord];
+    // 숙소가 있으면 그 지점을 경로 시작점으로 고정한 채 나머지만 최적화
+    let orderedUids;
+    if(lodgingFirst && points[0].uid === lodgingFirst.uid){
+      orderedUids = nearestNeighborOrder(points);
+    } else {
+      orderedUids = nearestNeighborOrder(points);
+    }
+    const byUid = Object.fromEntries(ROUTE_SELECTION.map(ri=>[ri.uid, ri]));
+    ROUTE_SELECTION = [...orderedUids.map(u=>byUid[u]), ...noCoord.map(u=>byUid[u])];
     renderRouteList();
     renderRouteOrder();
     toast(noCoord.length ? '순서를 계산했어요 (일부는 위치를 못 찾아 끝에 붙였어요)' : '효율적인 순서로 정렬했어요');
@@ -2269,8 +2334,8 @@ document.getElementById('route-mode-row').addEventListener('click', (e)=>{
 function updateRouteNote(){
   const note = document.getElementById('route-note');
   if(!note) return;
-  const hasDomestic = ROUTE_SELECTION.some(id=>{
-    const s = SPOTS.find(x=>x.id===id);
+  const hasDomestic = ROUTE_SELECTION.some(ri=>{
+    const s = SPOTS.find(x=>x.id===ri.spotId);
     return s && s.isDomestic;
   });
   const hasWaypoints = ROUTE_SELECTION.length > 2;
@@ -2283,9 +2348,81 @@ function updateRouteNote(){
   }
 }
 
+/* ---------------- 동선 저장/불러오기 ---------------- */
+async function saveCurrentRoute(){
+  if(ROUTE_SELECTION.length < 1){ toast('먼저 들를 곳을 선택해주세요'); return; }
+  const title = prompt('이 동선의 제목을 입력해주세요 (예: OO 빼고 갈 경우, MM 먼저 들를 경우)');
+  if(!title || !title.trim()) return;
+  const savedRoute = {
+    id: 'route_' + uid(8),
+    title: title.trim(),
+    mode: ROUTE_MODE,
+    spotIds: ROUTE_SELECTION.map(ri=>ri.spotId), // 순서·중복 그대로 저장
+    createdAt: Date.now()
+  };
+  const updated = [...(CURRENT_TRIP.savedRoutes||[]), savedRoute];
+  try{
+    await DB.tripUpdate(CURRENT_TRIP.code, { savedRoutes: updated });
+    CURRENT_TRIP.savedRoutes = updated;
+    renderSavedRoutes();
+    toast('동선을 저장했어요');
+  }catch(e){
+    console.error(e);
+    toast('저장에 실패했어요');
+  }
+}
+
+function renderSavedRoutes(){
+  const section = document.getElementById('saved-route-section');
+  const list = document.getElementById('saved-route-list');
+  const routes = CURRENT_TRIP.savedRoutes || [];
+  if(routes.length === 0){
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = 'block';
+  list.innerHTML = routes.map(r=>`
+    <div class="saved-route-row">
+      <div class="saved-route-title" onclick="loadSavedRoute('${r.id}')">
+        ${esc(r.title)}
+        <div class="saved-route-meta">${r.spotIds.length}곳 · ${MODE_LABEL[r.mode]||r.mode}</div>
+      </div>
+      <button class="route-arrow-btn remove" onclick="deleteSavedRoute('${r.id}')">✕</button>
+    </div>
+  `).join('');
+}
+
+const MODE_LABEL = { walking:'도보', transit:'대중교통', driving:'자동차' };
+
+function loadSavedRoute(routeId){
+  const r = (CURRENT_TRIP.savedRoutes||[]).find(x=>x.id===routeId);
+  if(!r) return;
+  ROUTE_SELECTION = r.spotIds.map(spotId=>({ uid:'ri_'+uid(6), spotId }));
+  ROUTE_MODE = r.mode || 'walking';
+  document.querySelectorAll('#route-mode-row .toggle-opt').forEach(o=>o.classList.toggle('active', o.dataset.mode===ROUTE_MODE));
+  renderRouteList();
+  renderRouteOrder();
+  updateRouteNote();
+  toast(`"${r.title}" 동선을 불러왔어요`);
+}
+
+async function deleteSavedRoute(routeId){
+  if(!confirm('이 저장된 동선을 삭제할까요?')) return;
+  const updated = (CURRENT_TRIP.savedRoutes||[]).filter(r=>r.id!==routeId);
+  try{
+    await DB.tripUpdate(CURRENT_TRIP.code, { savedRoutes: updated });
+    CURRENT_TRIP.savedRoutes = updated;
+    renderSavedRoutes();
+    toast('삭제했어요');
+  }catch(e){
+    console.error(e);
+    toast('삭제에 실패했어요');
+  }
+}
+
 function openRouteNav(){
   if(ROUTE_SELECTION.length < 2){ toast('두 곳 이상 선택해주세요'); return; }
-  const spots = ROUTE_SELECTION.map(id => SPOTS.find(s=>s.id===id)).filter(Boolean);
+  const spots = ROUTE_SELECTION.map(ri => SPOTS.find(s=>s.id===ri.spotId)).filter(Boolean);
   const origin = encodeURIComponent(spots[0].address || spots[0].name);
   const destination = encodeURIComponent(spots[spots.length-1].address || spots[spots.length-1].name);
   const waypoints = spots.slice(1, -1).map(s => encodeURIComponent(s.address || s.name)).join('|');
@@ -2328,7 +2465,7 @@ function daymapCharHtml(mode){
 
 async function openRouteOverview(){
   if(ROUTE_SELECTION.length < 2){ toast('두 곳 이상 선택해주세요'); return; }
-  const spots = ROUTE_SELECTION.map(id => SPOTS.find(x=>x.id===id)).filter(Boolean);
+  const spots = ROUTE_SELECTION.map(ri => SPOTS.find(x=>x.id===ri.spotId)).filter(Boolean);
   DAYMAP.pointer = 0;
   DAYMAP.mode = ROUTE_MODE;
   closeSheet('sheet-route');
@@ -2347,10 +2484,11 @@ async function openRouteOverview(){
 }
 
 async function daymapEnsureCoords(spots, loadingEl){
+  const bias = await getTripBiasLoc();
   for(const s of spots){
     if(s.lat == null || s.lng == null){
       if(loadingEl) loadingEl.textContent = '"' + s.name + '" 위치 찾는 중...';
-      const loc = await geocodeCity(s.address || s.name);
+      const loc = await geocodeCity(s.address || s.name, bias);
       if(loc){
         s.lat = loc.lat; s.lng = loc.lng;
         DB.updateSpot(CURRENT_TRIP.code, s.id, { lat: loc.lat, lng: loc.lng }).catch(()=>{});
@@ -2619,7 +2757,8 @@ async function retryGeocode(){
   btn.textContent = '위치 찾는 중...';
   try{
     PIN_PICKER_LATLNG = null; // 기존 수동 지정 좌표도 같이 초기화
-    const loc = await geocodeCity(address);
+    const bias = await getTripBiasLoc();
+    const loc = await geocodeCity(address, bias);
     if(loc){
       await DB.updateSpot(CURRENT_TRIP.code, EDITING_SPOT_ID, { lat: loc.lat, lng: loc.lng });
       const existing = SPOTS.find(s=>s.id===EDITING_SPOT_ID);
