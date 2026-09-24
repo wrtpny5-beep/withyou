@@ -552,6 +552,7 @@
   .chk-item.done .chk-check{background:var(--stamp-green); border-color:var(--stamp-green); color:var(--ink);}
   .chk-text{flex:1; min-width:0; font-size:15px; color:var(--ink); cursor:pointer;}
   .chk-text.done{text-decoration:line-through; color:var(--slate);}
+  .chk-count{display:block; font-size:11px; font-weight:600; color:var(--slate); text-decoration:none; margin-top:2px;}
   .chk-del{flex:0 0 auto; background:none; border:none; color:var(--stamp-red); font-size:13px; font-weight:700; cursor:pointer; padding:4px 6px;}
 </style>
 
@@ -918,7 +919,7 @@
       <button class="close-x" onclick="closeSheet('sheet-checklist')">✕</button>
       <div class="sheet-handle"></div>
       <h2>준비물 체크리스트</h2>
-      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">여행지·날짜·현재 날씨·일행 설문 답변을 참고해서 챙길 것을 추천해줘요. 일행 모두가 같이 체크하는 공용 목록이에요.</p>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">여행지·날짜·현재 날씨·일행 설문 답변을 참고해서 챙길 것을 추천해줘요. 목록은 같이 보되, 체크는 각자 따로 해요 — 내가 챙긴 것만 표시돼요.</p>
       <button class="btn btn-amber" id="checklist-ai-btn" onclick="generateChecklist()">추천 항목 받기</button>
       <div id="checklist-body" style="margin-top:16px;"></div>
       <div class="row-gap" style="margin-top:14px;">
@@ -2041,13 +2042,20 @@ function renderChecklist(){
     body.innerHTML = `<p style="color:var(--slate); font-size:14px; text-align:center; padding:10px 0 4px;">아직 항목이 없어요. AI 추천을 받거나 직접 추가해보세요.</p>`;
     return;
   }
-  body.innerHTML = list.map(it => `
-    <div class="chk-item ${it.checked?'done':''}">
-      <div class="chk-check" onclick="toggleChecklistItem('${it.id}')">${it.checked?'✔':''}</div>
-      <div class="chk-text ${it.checked?'done':''}" onclick="toggleChecklistItem('${it.id}')">${esc(it.text)}</div>
+  body.innerHTML = list.map(it => {
+    const checkedBy = it.checkedBy || {};
+    const mineChecked = !!checkedBy[USER.uid];
+    const checkedCount = Object.values(checkedBy).filter(Boolean).length;
+    return `
+    <div class="chk-item ${mineChecked?'done':''}">
+      <div class="chk-check" onclick="toggleChecklistItem('${it.id}')">${mineChecked?'✔':''}</div>
+      <div class="chk-text ${mineChecked?'done':''}" onclick="toggleChecklistItem('${it.id}')">
+        ${esc(it.text)}
+        ${checkedCount>0 ? `<span class="chk-count">${checkedCount}명 챙김</span>` : ''}
+      </div>
       <button class="chk-del" onclick="deleteChecklistItem('${it.id}')">삭제</button>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 async function saveChecklist(list){
   CURRENT_TRIP.checklist = list;
@@ -2055,7 +2063,13 @@ async function saveChecklist(list){
   catch(e){ console.error(e); toast('저장에 실패했어요'); }
 }
 async function toggleChecklistItem(itemId){
-  const list = (CURRENT_TRIP.checklist || []).map(it => it.id===itemId ? {...it, checked:!it.checked} : it);
+  const list = (CURRENT_TRIP.checklist || []).map(it => {
+    if(it.id !== itemId) return it;
+    const checkedBy = { ...(it.checkedBy||{}) };
+    if(checkedBy[USER.uid]) delete checkedBy[USER.uid];
+    else checkedBy[USER.uid] = true;
+    return { ...it, checkedBy };
+  });
   await saveChecklist(list);
   renderChecklist();
 }
@@ -2068,7 +2082,7 @@ async function addChecklistItem(){
   const input = document.getElementById('checklist-new-item');
   const text = input.value.trim();
   if(!text) return;
-  const list = [...(CURRENT_TRIP.checklist||[]), { id:'c_'+uid(8), text, checked:false }];
+  const list = [...(CURRENT_TRIP.checklist||[]), { id:'c_'+uid(8), text, checkedBy:{} }];
   await saveChecklist(list);
   input.value = '';
   renderChecklist();
@@ -2129,7 +2143,7 @@ async function generateChecklist(){
     const existingTexts = new Set((CURRENT_TRIP.checklist||[]).map(it=>it.text));
     const newItems = suggestions
       .filter(t => !existingTexts.has(t))
-      .map(t => ({ id:'c_'+uid(8), text:t, checked:false }));
+      .map(t => ({ id:'c_'+uid(8), text:t, checkedBy:{} }));
     if(newItems.length === 0){
       toast('이미 다 있는 항목들이에요');
       return;
