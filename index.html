@@ -2164,7 +2164,7 @@ function toggleComments(spotId){
             <div class="author">${esc(c.author)}</div>
             <div class="text">${esc(c.text)}</div>
             <div class="time">${timeAgo(c.createdAt)}</div>
-            ${c.authorUid===USER.uid ? `<button class="comment-delete-btn" onclick="deleteComment('${spotId}','${c.id}')">삭제</button>` : ''}
+            ${(c.authorUid ? c.authorUid===USER.uid : c.author===USER.nickname) ? `<button class="comment-delete-btn" onclick="deleteComment('${spotId}','${c.id}')">삭제</button>` : ''}
           </div>
         `).join('')}
         <div class="comment-input-row">
