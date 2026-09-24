@@ -664,6 +664,7 @@
       <input type="text" id="new-spot-address" placeholder="도시명을 꼭 같이 적어주세요" style="margin-bottom:6px;">
       <p style="font-size:12px; color:var(--slate); line-height:1.5; margin:0 0 10px;">동명의 장소가 있을 수 있어요. "아메무라"보다 "오사카 아메무라"처럼 도시명을 같이 적으면 길찾기가 더 정확해져요.</p>
       <button type="button" class="btn btn-outline" style="margin-top:0;" onclick="openPinPicker()">지도에서 정확한 위치 찍기 (선택)</button>
+      <button type="button" class="btn btn-outline" id="btn-retry-geocode" style="display:none; margin-top:8px;" onclick="retryGeocode()">위치 다시 찾기 (저장된 좌표 지우고 재검색)</button>
       <div id="pin-status" style="font-size:12px; color:var(--slate); margin:6px 0 14px;"></div>
 
       <label class="field-label">며칠째 일정인가요? (선택, 일정 보기에 쓰여요)</label>
@@ -1464,10 +1465,12 @@ async function geocodeViaWikipedia(city){
   };
   return (await tryLang('ko')) || (await tryLang('en'));
 }
-async function geocodeViaGoogleProxy(query){
+async function geocodeViaGoogleProxy(query, bias){
   if(!GEOCODE_PROXY_URL) return null;
   try{
-    const res = await fetch(`${GEOCODE_PROXY_URL}?q=${encodeURIComponent(query)}`);
+    let url = `${GEOCODE_PROXY_URL}?q=${encodeURIComponent(query)}`;
+    if(bias && bias.lat != null && bias.lng != null) url += `&bias=${bias.lat},${bias.lng}`;
+    const res = await fetch(url);
     if(!res.ok) return null;
     const data = await res.json();
     return (data && data.lat != null && data.lng != null) ? { lat: data.lat, lng: data.lng } : null;
@@ -1496,9 +1499,13 @@ async function geocodeViaNominatim(query){
     return r ? { lat: parseFloat(r.lat), lng: parseFloat(r.lon) } : null;
   }catch(e){ return null; }
 }
-async function geocodeCity(city){
+async function geocodeCity(city, bias){
+  // 별도로 안 넘겨주면, 이미 찾아둔 이번 여행 도시 좌표를 기본 기준점으로 사용
+  // (같은 상호명이 여러 나라에 있을 때 엉뚱한 나라로 안 잡히게 해줘요)
+  const effectiveBias = bias || CURRENT_WEATHER_LOC || null;
+
   // 구글 지오코딩 프록시가 설정돼 있으면 최우선 (가장 정확함)
-  const viaGoogle = await geocodeViaGoogleProxy(city);
+  const viaGoogle = await geocodeViaGoogleProxy(city, effectiveBias);
   if(viaGoogle) return viaGoogle;
 
   // Nominatim(OSM)이 실제 매장/가게 단위 데이터를 갖고 있어서 다음 순서
@@ -2573,6 +2580,7 @@ function openAddSpot(){
   document.getElementById('add-spot-heading').textContent = '스팟 추가하기';
   document.getElementById('add-spot-submit-btn').textContent = '추가하기';
   document.getElementById('delete-spot-btn').style.display = 'none';
+  document.getElementById('btn-retry-geocode').style.display = 'none';
   document.getElementById('sheet-add').classList.add('open');
 }
 
@@ -2590,6 +2598,7 @@ function openEditSpot(spotId){
   document.getElementById('add-spot-heading').textContent = '스팟 수정하기';
   document.getElementById('add-spot-submit-btn').textContent = '저장하기';
   document.getElementById('delete-spot-btn').style.display = 'block';
+  document.getElementById('btn-retry-geocode').style.display = 'block';
   if(s.lat != null && s.lng != null){
     PIN_PICKER_LATLNG = { lat: s.lat, lng: s.lng };
     document.getElementById('pin-status').textContent = '위치 지정됨 (탭해서 다시 수정 가능)';
@@ -2598,6 +2607,39 @@ function openEditSpot(spotId){
     document.getElementById('pin-status').textContent = '';
   }
   document.getElementById('sheet-add').classList.add('open');
+}
+
+async function retryGeocode(){
+  if(!EDITING_SPOT_ID) return;
+  const name = document.getElementById('new-spot-name').value.trim();
+  const address = document.getElementById('new-spot-address').value.trim() || name;
+  if(!address){ toast('주소나 이름을 먼저 입력해주세요'); return; }
+  const btn = document.getElementById('btn-retry-geocode');
+  btn.disabled = true;
+  btn.textContent = '위치 찾는 중...';
+  try{
+    PIN_PICKER_LATLNG = null; // 기존 수동 지정 좌표도 같이 초기화
+    const loc = await geocodeCity(address);
+    if(loc){
+      await DB.updateSpot(CURRENT_TRIP.code, EDITING_SPOT_ID, { lat: loc.lat, lng: loc.lng });
+      const existing = SPOTS.find(s=>s.id===EDITING_SPOT_ID);
+      if(existing){ existing.lat = loc.lat; existing.lng = loc.lng; }
+      document.getElementById('pin-status').textContent = '새로 찾았어요 (지도에서 확인하려면 위치 찍기를 열어보세요)';
+      toast('위치를 새로 찾았어요');
+    } else {
+      await DB.updateSpot(CURRENT_TRIP.code, EDITING_SPOT_ID, { lat: null, lng: null });
+      const existing = SPOTS.find(s=>s.id===EDITING_SPOT_ID);
+      if(existing){ existing.lat = null; existing.lng = null; }
+      document.getElementById('pin-status').textContent = '';
+      toast('위치를 찾지 못했어요. "지도에서 정확한 위치 찍기"를 이용해주세요.');
+    }
+  }catch(e){
+    console.error(e);
+    toast('위치 재검색에 실패했어요');
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '위치 다시 찾기 (저장된 좌표 지우고 재검색)';
+  }
 }
 
 async function openPinPicker(){
