@@ -554,6 +554,15 @@
   .chk-text.done{text-decoration:line-through; color:var(--slate);}
   .chk-count{display:block; font-size:11px; font-weight:600; color:var(--slate); text-decoration:none; margin-top:2px;}
   .chk-del{flex:0 0 auto; background:none; border:none; color:var(--stamp-red); font-size:13px; font-weight:700; cursor:pointer; padding:4px 6px;}
+
+  .outfit-card{border:1.5px solid var(--line); border-radius:14px; padding:14px; margin-bottom:10px; background:var(--paper-2);}
+  .outfit-card-top{display:flex; align-items:center; gap:10px; margin-bottom:8px;}
+  .outfit-date{font-size:14px; font-weight:800; color:var(--ink); font-family:var(--font-display);}
+  .outfit-icon{width:22px; height:22px; color:var(--ink-soft);}
+  .outfit-icon svg{width:100%; height:100%;}
+  .outfit-temp{margin-left:auto; font-size:13.5px; font-weight:700; color:var(--ink);}
+  .outfit-base{font-size:14.5px; font-weight:600; color:var(--ink);}
+  .outfit-extra{font-size:12.5px; color:var(--slate); margin-top:4px; line-height:1.5;}
 </style>
 
 
@@ -929,6 +938,18 @@
     </div>
   </div>
 
+  <!-- ============ OUTFIT SHEET ============ -->
+  <div class="sheet-backdrop" id="sheet-outfit">
+    <div class="sheet">
+      <button class="close-x" onclick="closeSheet('sheet-outfit')">✕</button>
+      <div class="sheet-handle"></div>
+      <h2>옷차림 추천</h2>
+      <p style="font-size:14px; color:var(--ink-soft); line-height:1.6; margin:-6px 0 16px;">여행지의 날짜별 예보 기온·강수 여부를 보고 옷차림을 추천해줘요.</p>
+      <button class="btn btn-amber" id="outfit-btn" onclick="loadOutfitRecommendation()">옷차림 추천받기</button>
+      <div id="outfit-body" style="margin-top:16px;"></div>
+    </div>
+  </div>
+
   <!-- ============ WHO ARE YOU (멤버 식별) SHEET ============ -->
   <div class="sheet-backdrop" id="sheet-who">
     <div class="sheet">
@@ -1001,6 +1022,7 @@
       <button class="btn btn-outline" id="btn-find-group" style="display:none;" onclick="closeSheet('sheet-settings'); openFindGroup();">일행 찾기 (지도에서 위치 보기)</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openItinerary();">전체 일정 보기</button>
       <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openChecklist();">준비물 체크리스트</button>
+      <button class="btn btn-outline" onclick="closeSheet('sheet-settings'); openOutfit();">옷차림 추천</button>
       <button class="btn btn-outline" id="btn-open-photos" style="display:none;" onclick="closeSheet('sheet-settings'); openPhotos();">사진 공유</button>
       <button class="btn btn-outline" id="btn-open-docs" style="display:none;" onclick="closeSheet('sheet-settings'); openDocs();">문서함 (일정표 · e티켓)</button>
       <button class="btn btn-outline" onclick="changeTripCity()">배경사진 바꾸기</button>
@@ -2158,6 +2180,79 @@ async function generateChecklist(){
   }finally{
     btn.disabled = false;
     btn.textContent = '추천 항목 받기';
+  }
+}
+
+/* ---------------- 옷차림 추천 ---------------- */
+function outfitForDay(maxT, minT, code, precipProb){
+  let base;
+  if(maxT >= 28) base = '반팔·반바지 등 시원하고 통기성 좋은 옷';
+  else if(maxT >= 23) base = '반팔 + 얇은 셔츠/가디건 (아침저녁 선선할 수 있어요)';
+  else if(maxT >= 17) base = '긴팔 + 얇은 니트나 후드';
+  else if(maxT >= 9) base = '자켓이나 가디건, 맨투맨 등 겉옷 필수';
+  else if(maxT >= 4) base = '코트나 두꺼운 니트, 히트텍 안에 받쳐입기';
+  else base = '패딩 등 두꺼운 외투, 목도리·장갑';
+
+  const extras = [];
+  if(minT <= 10 && maxT - minT >= 10) extras.push('낮과 밤 기온차가 커서 겉옷 하나 챙기면 좋아요');
+  if([51,53,55,61,63,65,80,81,82].includes(code) || (precipProb!=null && precipProb>=50)) extras.push('비 소식 있어요 — 우산이나 방수 신발 추천');
+  if([71,73,75,77,85,86].includes(code)) extras.push('눈 소식 있어요 — 미끄럼 방지 신발 챙기세요');
+  if([95,96,99].includes(code)) extras.push('뇌우 예보가 있어요 — 야외 일정은 시간 여유 두는 게 좋아요');
+
+  return { base, extras };
+}
+
+function outfitTripDays(){
+  let maxDay = 0;
+  SPOTS.forEach(s=>{ if(s.day && s.day > maxDay) maxDay = s.day; });
+  return Math.min(14, Math.max(3, maxDay || 5));
+}
+
+async function openOutfit(){
+  document.getElementById('sheet-outfit').classList.add('open');
+}
+
+async function loadOutfitRecommendation(){
+  const btn = document.getElementById('outfit-btn');
+  const body = document.getElementById('outfit-body');
+  const bias = await getTripBiasLoc();
+  if(!bias){
+    toast('여행 도시 위치를 아직 못 찾았어요');
+    return;
+  }
+  btn.disabled = true;
+  btn.textContent = '불러오는 중...';
+  try{
+    const days = outfitTripDays();
+    const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${bias.lat}&longitude=${bias.lng}&daily=weathercode,temperature_2m_max,temperature_2m_min,precipitation_probability_max&timezone=auto&forecast_days=${days}`);
+    if(!res.ok) throw new Error('forecast fetch failed');
+    const data = await res.json();
+    const { time, weathercode, temperature_2m_max, temperature_2m_min, precipitation_probability_max } = data.daily;
+    body.innerHTML = time.map((dateStr, i)=>{
+      const d = new Date(dateStr + 'T00:00:00');
+      const label = `${d.getMonth()+1}/${d.getDate()}`;
+      const maxT = Math.round(temperature_2m_max[i]);
+      const minT = Math.round(temperature_2m_min[i]);
+      const code = weathercode[i];
+      const precipProb = precipitation_probability_max ? precipitation_probability_max[i] : null;
+      const { base, extras } = outfitForDay(maxT, minT, code, precipProb);
+      return `
+      <div class="outfit-card">
+        <div class="outfit-card-top">
+          <div class="outfit-date">${label}</div>
+          <div class="outfit-icon">${weatherIconFor(code)}</div>
+          <div class="outfit-temp">${maxT}° / ${minT}°</div>
+        </div>
+        <div class="outfit-base">${esc(base)}</div>
+        ${extras.map(e=>`<div class="outfit-extra">${esc(e)}</div>`).join('')}
+      </div>`;
+    }).join('');
+  }catch(e){
+    console.error(e);
+    body.innerHTML = `<p style="text-align:center; color:var(--slate); font-size:13.5px; padding:16px 0;">예보를 불러오지 못했어요.</p>`;
+  }finally{
+    btn.disabled = false;
+    btn.textContent = '옷차림 추천받기';
   }
 }
 
